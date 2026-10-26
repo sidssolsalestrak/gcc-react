@@ -275,7 +275,6 @@ export default function Area() {
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
         { field: "reg_name", headerName: regionLabel.toUpperCase(), filterable: true, sortable: true },
-        { field: "state_name", headerName: stateLabel.toUpperCase(), filterable: true, sortable: true },
         { field: "area_name", headerName: areaLabel.toUpperCase(), filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
@@ -340,7 +339,7 @@ export default function Area() {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        label={`${regionLabel} Name`}
+                                        label={`${regionLabel}`}
                                         size="small"
                                         error={regionError}
                                         required
@@ -348,29 +347,7 @@ export default function Area() {
                                     />
                                 )}
                             />
-
-                            <Autocomplete
-                                options={[{ id: "0", state_name: `Select ${stateLabel}` }, ...allState]}
-                                getOptionLabel={(option) => option.state_name || ""}
-                                value={selState}
-                                onChange={(e, newValue) => {
-                                    setSelState(newValue)
-                                    if (stateError) setStateError(false)
-                                }}
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label={`${stateLabel} Name`}
-                                        size="small"
-                                        error={stateError}
-                                        required
-                                        helperText={stateError ? `The ${stateLabel} Name field is required.` : ""}
-                                    />
-                                )}
-                            />
-
-                            <TextField label={`${areaLabel} Name`} size="small" value={areaName}
+                            <TextField label={`${areaLabel}`} size="small" value={areaName}
                                 onChange={(e) => {
                                     const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
                                     setAreaName(onlyText)

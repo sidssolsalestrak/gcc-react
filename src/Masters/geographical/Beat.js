@@ -55,7 +55,7 @@ export default function Beat() {
     const territoryLabel = masterPanel["TERR"] || "Territory";
     usePageTitle(beatLabel || "Beat")
 
-    const DEFAULT_AREA = { id: "0", area_name: `Select ${areaLabel}` }
+    const DEFAULT_AREA = { id: "0", area_name: `Select  ${areaLabel}` }
     const DEFAULT_TERRITORY = { id: "0", ter_name: `Select ${territoryLabel}` }
 
     useEffect(() => {
@@ -160,7 +160,7 @@ export default function Beat() {
             let response = await api.post("/readBeat", { beat_id: id })
             let data = response.data.data[0]
             setRegId(data.reg_id)
-            setSelArea(data.area_id)
+            setSelArea(data.areaId)
             setHdnSelArea(data.area_id)
             setBeatName(data.beat_name)
             setHdnBeatName(data.beat_name)
@@ -310,6 +310,7 @@ export default function Beat() {
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
+        { field: "area_name", headerName:`${areaLabel}`,filterable: true, sortable: true},
         { field: "ter_name", headerName: `${territoryLabel} Name`, filterable: true, sortable: true },
         { field: "beat_name", headerName: `${beatLabel} Name`, filterable: true, sortable: true },
         {
@@ -317,11 +318,11 @@ export default function Beat() {
             renderCell: (row) => (
                 <>
                     {[0, 2].includes(Number(accStat)) &&
-                        <IconButton className='updateBtn' size="small" onClick={() => handleEdit(row.row.beatID)}>
+                        <IconButton className='updateBtn' size="small" onClick={() => handleEdit(row.row.id)}>
                             <MdOutlineEdit size={15} />
                         </IconButton>}
                     {[0, 2].includes(Number(accStat)) &&
-                        <IconButton className='deleteBtn' size="small" onClick={() => showDeleteConfirmation(row.row.beatID)}>
+                        <IconButton className='deleteBtn' size="small" onClick={() => showDeleteConfirmation(row.row.id)}>
                             <DeleteIcon size={15} />
                         </IconButton>}
                 </>
@@ -376,7 +377,7 @@ export default function Beat() {
                                     <TextField
                                         required
                                         {...params}
-                                        label={`${areaLabel} Name`}
+                                        label={`${areaLabel}`}
                                         size="small"
                                         error={areaError}
                                         helperText={areaError ? `The ${areaLabel} Name field is required.` : ""}
@@ -395,7 +396,7 @@ export default function Beat() {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        label={`${territoryLabel} Name`}
+                                        label={`${territoryLabel}`}
                                         size="small"
                                         error={territoryError}
                                         required

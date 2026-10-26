@@ -242,8 +242,8 @@ export default function Region() {
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
-        { field: "zone_name", headerName: (masterPanel["ZONE"] || "ZONE").toUpperCase(), filterable: true, sortable: true },
         { field: "reg_name", headerName: `${(masterPanel["REGN"] || "Region").toUpperCase()} NAME`, filterable: true, sortable: true },
+        { field: "zone_name", headerName: `${(masterPanel["ZONE"] || "ZONE").toUpperCase()} NAME`, filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
             renderCell: (row) => (
@@ -296,12 +296,12 @@ export default function Region() {
                     {tabValue === 0 && (
                         <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, width: '90%' }}>
                             <FormControl sx={{ width: '100%' }}>
-                                <InputLabel id="zone_name">{masterPanel["ZONE"] || "Zone"} Name*</InputLabel>
+                                <InputLabel id="zone_name">{masterPanel["ZONE"] || "Zone"}*</InputLabel>
                                 <Select
                                     value={selectedZone}
                                     onChange={(e) => setSelectedZone(e.target.value)}
                                     labelId="zone_name"
-                                    label={`${masterPanel["ZONE"] || "Zone"} Name*`}
+                                    label={`${masterPanel["ZONE"] || "Zone"}*`}
                                     size="small"
                                     error={zoneError}
                                     MenuProps={{
@@ -321,7 +321,7 @@ export default function Region() {
                             </FormControl>
 
                             <TextField
-                                label={`${masterPanel["REGN"] || "Region"} Name`}
+                                label={`${masterPanel["REGN"] || "Region"} `}
                                 placeholder={`Enter ${masterPanel["REGN"] || "Region"} Name`}
                                 size="small"
                                 value={regionName}

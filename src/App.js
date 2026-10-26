@@ -78,6 +78,10 @@ import OtpTwoStepValidate from "./view/OtpTwoStepValidate";
 import { useLocation } from "react-router-dom";
 import PassExpReset from "./view/PassExpReset";
 import UploadBilling from "./view/trans/uploadBilling";
+import Hospital from "./Masters/classifymaster/HospitalInstitution";
+import Objective from "./Masters/classifymaster/objective";
+import SampleType from "./Masters/classifymaster/sampleType";
+import Event from "./Masters/classifymaster/event";
 
 function App() {
    const relatedRoutes = {
@@ -391,6 +395,10 @@ function App() {
              <Route path="/upload_closing" element={<UploadClosing />}  />
              <Route path="/input/uploadBilling" element={<UploadBilling />}  />
              <Route path="/change_password"  element={<ChangePassword />}  />
+             <Route path="/masters/hospital/:editHospId?" element={<Hospital />} />
+             <Route path="/masters/objective/:editObjId?" element={<Objective />} />
+             <Route path="/masters/sampleType/:editSampleId?" element={<SampleType />} />
+             <Route path="/masters/event/:editEventId?" element={<Event />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
 

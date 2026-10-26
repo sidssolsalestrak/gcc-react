@@ -248,7 +248,7 @@ export default function Territory() {
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
-        { field: "area", headerName: areaLabel.toUpperCase(), filterable: true, sortable: true },
+        { field: "area", headerName: `${areaLabel}`, filterable: true, sortable: true },
         { field: "ter_name", headerName: territoryLabel.toUpperCase(), filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
@@ -309,7 +309,7 @@ export default function Territory() {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        label={`${areaLabel} Name`}
+                                        label={`${areaLabel}`}
                                         size="small"
                                         error={areaError}
                                         required
@@ -318,7 +318,7 @@ export default function Territory() {
                                 )}
                                 isOptionEqualToValue={(option, value) => option.id === value?.id}
                             />
-                            <TextField label={`${territoryLabel} Name`} size="small" value={terName}
+                            <TextField label={`${territoryLabel}`} size="small" value={terName}
                                 onChange={(e) => {
                                     const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
                                     setTerName(onlyText)
@@ -327,6 +327,7 @@ export default function Territory() {
                                 error={!!terError}
                                 required
                                 helperText={terError ? terErrorMsg : ""}
+                                placeholder="Enter Territory name"
                             />
                             {!decodedEditTerritoryId && [0,1,2].includes(Number(accStat)) &&
                              <Button variant="contained" sx={{ width: '2rem', textTransform: 'none' }}
