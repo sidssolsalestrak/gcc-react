@@ -5,7 +5,7 @@ import {
     IconButton, Autocomplete
 } from "@mui/material";
 import api from "../../services/api";
-import { useSnackbar } from "notistack";
+import useToast from "../../utils/useToast";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import DataTable from "../../utils/dataTable";
 import ConfirmationDialog from "../../utils/confirmDialog";
@@ -13,8 +13,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { MdOutlineEdit } from "react-icons/md";
 import { getMasterPanel } from "../../services/masterPanelService";
 import usePageTitle from '../../services/usePageTitle'
-
-const SNACK_POS = { vertical: 'top', horizontal: 'center' }
 
 const TYPE_OPTIONS = [
     { id: "8", label: "Med.Rep" },
@@ -31,7 +29,7 @@ export default function Event() {
 
     const { editEventId } = useParams()
     const decodedEditEventId = editEventId !== undefined && editEventId !== null ? Number(atob(editEventId)) : null
-    const { enqueueSnackbar } = useSnackbar()
+    const toast = useToast()
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -146,7 +144,7 @@ export default function Event() {
         }
 
         if (!isValid) {
-            enqueueSnackbar("Please fix all mandatory fields", { variant: 'error', anchorOrigin: SNACK_POS })
+            toast.error("Please fix all mandatory fields")
         }
         return isValid
     }
@@ -163,26 +161,26 @@ export default function Event() {
                 let check = hdnEventName.toLowerCase().trim() === eventName.toLowerCase().trim() ? 0 : 1
                 let response = await api.post("/eventUpdate", { id: decodedEditEventId, ...payload, check })
                 if (response.data.success) {
-                    enqueueSnackbar(response.data.message, { variant: "success", anchorOrigin: SNACK_POS })
+                    toast.success(response.data.message)
                     fetchAllEvent()
                     navigate('/masters/event')
                 } else {
-                    enqueueSnackbar(response.data.message || "Update Failed", { variant: "error", anchorOrigin: SNACK_POS })
+                    toast.error(response.data.message || "Update Failed")
                 }
             } else {
                 let response = await api.post("/eventCreate", payload)
                 if (response.data.success) {
-                    enqueueSnackbar(response.data.message, { variant: 'success', anchorOrigin: SNACK_POS })
+                    toast.success(response.data.message)
                     resetFields()
                     fetchAllEvent()
                     setTabValue(1)
                 } else {
-                    enqueueSnackbar(response.data.message, { variant: 'error', anchorOrigin: SNACK_POS })
+                    toast.error(response.data.message)
                 }
             }
         } catch (err) {
             console.log(err)
-            enqueueSnackbar("Something went wrong Try again!!", { variant: 'error', anchorOrigin: SNACK_POS })
+            toast.error("Something went wrong Try again!!")
         } finally {
             setModifyLoading(false)
             closeConfirmationDialog()
@@ -198,14 +196,14 @@ export default function Event() {
         try {
             let response = await api.post("/deleteEvent", { id })
             if (response.data.code === 1) {
-                enqueueSnackbar(response.data.message, { variant: "success", anchorOrigin: SNACK_POS })
+                toast.success(response.data.message)
             } else {
-                enqueueSnackbar(response.data.message, { variant: "error", anchorOrigin: SNACK_POS })
+                toast.error(response.data.message)
             }
             fetchAllEvent()
         } catch (err) {
             console.log("deleteEvent error", err)
-            enqueueSnackbar("Something went wrong Try again!!", { variant: 'error', anchorOrigin: SNACK_POS })
+            toast.error("Something went wrong Try again!!")
         } finally {
             closeConfirmationDialog()
             setModifyLoading(false)

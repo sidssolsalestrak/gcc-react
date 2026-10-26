@@ -23,19 +23,15 @@ export default function Area() {
 
     const [tabValue, setTabValue] = useState(1)
     const [selRegion, setSelRegion] = useState(null)
-    const [selState, setSelState] = useState(null)
     const [hdnSelRegionId, setHdnSelRegionId] = useState(null)
-    const [hdnSelStateId, setHdnSelStateId] = useState(null)
     const [areaName, setAreaName] = useState("")
     const [hdnAreaName, setHdnAreaName] = useState("")
     const [allRegion, setAllRegion] = useState([])
-    const [allState, setAllState] = useState([])
     const [allArea, setAllArea] = useState([])
     const [accStat, setAccStat] = useState(null)
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [regionError, setRegionError] = useState(false)
-    const [stateError, setStateError] = useState(false)
     const [areaError, setAreaError] = useState(false)
     const [areaErrorMsg, setAreaErrorMsg] = useState("")
     const [confirmationDialog, setConfirmationDialog] = useState({
@@ -47,7 +43,6 @@ export default function Area() {
 
     const areaLabel = masterPanel["AREA"] || "Area";
     const regionLabel = masterPanel["REGN"] || "Region";
-    const stateLabel = "State";
      usePageTitle(areaLabel || "Area")
 
     useEffect(() => {
@@ -61,7 +56,6 @@ export default function Area() {
     useEffect(() => {
         fetchArea()
         fetchRegion()
-        fetchState()
     }, [])
 
     useEffect(() => {
@@ -70,20 +64,17 @@ export default function Area() {
             setTabValue(1)
             return
         }
-        if (allRegion.length === 0 || allState.length === 0) return
+        if (allRegion.length === 0) return
         collectEditData(decodedAreaId)
         // eslint-disable-next-line
-    }, [decodedAreaId, allRegion, allState])
+    }, [decodedAreaId, allRegion])
 
     const resetFields = () => {
         setSelRegion(null)
-        setSelState(null)
         setHdnSelRegionId(null)
-        setHdnSelStateId(null)
         setAreaName("")
         setHdnAreaName("")
         setRegionError(false)
-        setStateError(false)
         setAreaError(false)
         setAreaErrorMsg("")
     }
@@ -113,31 +104,18 @@ export default function Area() {
         }
     }
 
-    const fetchState = async () => {
-        try {
-            let response = await api.post("/getState")
-            setAllState(Array.isArray(response.data.data) ? response.data.data : [])
-        } catch (err) {
-            console.log("fetchState error", err)
-        }
-    }
-
     const collectEditData = async (id) => {
         try {
             let response = await api.post("/read_area", { areaId: id })
             let data = response.data.data[0]
 
             const matchedRegion = allRegion.find(r => r.id === data.reg_id) || null
-            const matchedState = allState.find(s => s.id === data.state_id) || null
             setSelRegion(matchedRegion)
-            setSelState(matchedState)
             setHdnSelRegionId(matchedRegion?.id ?? null)
-            setHdnSelStateId(matchedState?.id ?? null)
 
             setAreaName(data.area_name)
             setHdnAreaName(data.area_name)
             setRegionError(false)
-            setStateError(false)
             setAreaError(false)
             setAreaErrorMsg("")
             setTabValue(0)
@@ -153,12 +131,10 @@ export default function Area() {
     const validateAreaFields = () => {
         let isValid = true
         setRegionError(false)
-        setStateError(false)
         setAreaError(false)
         setAreaErrorMsg("")
 
         if (!selRegion || Number(selRegion.id) === 0) { setRegionError(true); isValid = false }
-        if (!selState || Number(selState.id) === 0) { setStateError(true); isValid = false }
 
         if (!areaName || areaName.trim() === "") {
             setAreaError(true)
@@ -185,7 +161,6 @@ export default function Area() {
                 let response = await api.post("/areaUpdate", {
                     updId: decodedAreaId,
                     reg_name: selRegion?.id,
-                    state_name: selState?.id,
                     area_name: areaName.trim(),
                     check: check
                 })
@@ -199,7 +174,6 @@ export default function Area() {
             } else {
                 let response = await api.post("/areaCreate", {
                     reg_name: selRegion?.id,
-                    state_name: selState?.id,
                     area_name: areaName.trim()
                 })
                 if (response.data.success) {
@@ -274,7 +248,7 @@ export default function Area() {
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
-        { field: "reg_name", headerName: regionLabel.toUpperCase(), filterable: true, sortable: true },
+        { field: "reg_name", headerName: `${regionLabel.toUpperCase()} Name`, filterable: true, sortable: true },
         { field: "area_name", headerName: areaLabel.toUpperCase(), filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
@@ -368,7 +342,6 @@ export default function Area() {
                                     sx={{ width: '2rem', textTransform: 'none' }}
                                     disabled={
                                         String(hdnSelRegionId) === String(selRegion?.id) &&
-                                        String(hdnSelStateId) === String(selState?.id) &&
                                         hdnAreaName.toLowerCase().trim() === areaName.toLowerCase().trim()
                                     }
                                     onClick={() => { if (validateAreaFields()) showSubmitConfirmation() }}>
