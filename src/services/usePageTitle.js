@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const APP_NAME = "Camlin";
+const APP_NAME = "GCC";
 
 export default function usePageTitle(pageTitle) {
   useEffect(() => {
