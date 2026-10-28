@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import Layout from '../../../layout'
-import PageHeader from '../../../utils/PageHeader'
-import { Box, TextField, Button, FormControl, InputLabel, Select, MenuItem, IconButton, Typography } from '@mui/material'
+import { Box, TextField, Button, IconButton, Typography } from '@mui/material'
 import Tab from '@mui/material/Tab';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
@@ -13,31 +12,21 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import useToast from "../../../utils/useToast";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ConfirmationDialog from "../../../utils/confirmDialog";
-import { useCallback } from 'react';
 import { getMasterPanel } from "../../../services/masterPanelService";
 import usePageTitle from '../../../services/usePageTitle'
 
 const tabStyle = { fontWeight: 600, fontSize: '1.1rem' }
-const menuStyle = {
-    PaperProps: {
-        style: {
-            maxHeight: 200
-        }
-    }
-}
 
 const ProductCategory = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const [tableData, settableData] = useState([]);
-    const [brandData, setbrandData] = useState([]);
     const [value, setValue] = React.useState('1');
     const [loading, setLoading] = useState(true)
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
 
-    const brandLabel = masterPanel["BRND"] || "Brand";
     usePageTitle(masterPanel["PCAT"] || "Product Category")
 
     useEffect(() => {
@@ -67,22 +56,17 @@ const ProductCategory = () => {
 
         resolveAccStat();
     }, []);
+
     /*---------- form fields ---------*/
     const [formData, setFormData] = useState({
-        brand: "",
-        categoryCode: "",
         categoryName: ""
     })
-    /*---------- original cat code and name for edit---------*/
+    /*---------- original cat name for edit---------*/
     const [original, setoriginal] = useState({
-        brand: "",
-        catcode: "",
         catname: ""
     })
     /*---------- form validations ---------*/
     const [validation, setValidations] = useState({
-        brand: "",
-        categoryCode: "",
         categoryName: "",
     })
     /*---------- decode params ---------*/
@@ -94,8 +78,6 @@ const ProductCategory = () => {
     /*---------- reset validations ---------*/
     const resetValidations = () => {
         setValidations({
-            brand: "",
-            categoryCode: "",
             categoryName: ""
         })
     }
@@ -152,24 +134,10 @@ const ProductCategory = () => {
     const validations = () => {
         let isValid = true;
         const newValidations = {
-            brand: "",
-            categoryCode: "",
             categoryName: ""
-        }
-        if (!formData.brand) {
-            newValidations.brand = `The ${brandLabel} field is required`;
-            isValid = false;
         }
 
         const label = masterPanel["PCAT"] || "Product Category";
-
-        if (!formData.categoryCode || formData.categoryCode.trim() === "") {
-            newValidations.categoryCode = `The ${label} Code field is required`;
-            isValid = false;
-        } else if (/[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryCode)) {
-            newValidations.categoryCode = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
-            isValid = false;
-        }
 
         if (!formData.categoryName || formData.categoryName.trim() === "") {
             newValidations.categoryName = `The ${label} Name field is required`;
@@ -191,14 +159,12 @@ const ProductCategory = () => {
         try {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             let payload = {
-                brand_id: formData.brand,
-                cat_code: formData.categoryCode,
                 cat_name: formData.categoryName
             }
             const res = await axios.post("/addCat", payload)
             if (res?.data?.success) {
                 showAlert.success(`${masterPanel["PCAT"] || "Product Category"} Added Successfully`)
-                setFormData({ brand: "", categoryCode: "", categoryName: "" });
+                setFormData({ categoryName: "" });
                 fetchTableData();
                 resetValidations();
             } else {
@@ -207,6 +173,7 @@ const ProductCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
+                setValidations({ categoryName: val?.message || "" });
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -223,16 +190,13 @@ const ProductCategory = () => {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             let payload = {
                 id: decodedId,
-                brand_id: formData.brand,
-                hdnCatCode: original.catcode,
                 hdnCatName: original.catname,
-                cat_code: formData.categoryCode,
                 cat_name: formData.categoryName
             }
             const res = await axios.post("/editCat", payload)
             if (res?.data?.success) {
                 showAlert.success(`${masterPanel["PCAT"] || "Product Category"} Updated Successfully`)
-                setFormData({ brand: "", categoryCode: "", categoryName: "" });
+                setFormData({ categoryName: "" });
                 setValue('1')
                 navigate(`/masters/cat`)
             } else {
@@ -241,6 +205,7 @@ const ProductCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
+                setValidations({ categoryName: val?.message || "" });
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -278,13 +243,9 @@ const ProductCategory = () => {
             const data = res?.data?.data || [];
             if (data && data.length > 0) {
                 setFormData({
-                    brand: data[0]?.brand_id || "",
-                    categoryCode: data[0]?.cat_code || "",
                     categoryName: data[0]?.cat_name || ""
                 });
                 setoriginal({
-                    brand: data[0]?.brand_id || "",
-                    catcode: data[0]?.cat_code || "",
                     catname: data[0]?.cat_name || ""
                 })
             }
@@ -306,7 +267,7 @@ const ProductCategory = () => {
             }
         } catch (error) {
             console.error(error);
-            showAlert.error("failed to delete")
+            showAlert.error(error?.response?.data?.message || "failed to delete")
         } finally {
             closeConfirmationDialog();
         }
@@ -317,18 +278,6 @@ const ProductCategory = () => {
         {
             field: "index",
             headerName: "#",
-            filterable: true,
-            sortable: true
-        },
-        {
-            field: "brand_name",
-            headerName: brandLabel,
-            filterable: true,
-            sortable: true
-        },
-        {
-            field: "cat_code",
-            headerName: `${masterPanel["PCAT"] || "Product Category"} Code`,
             filterable: true,
             sortable: true
         },
@@ -359,18 +308,6 @@ const ProductCategory = () => {
         },
     ]
 
-    /*---------- fetch brand ---------*/
-    const fetchBrand = async () => {
-        try {
-            const res = await axios.post("/getBrand");
-            const data = Array.isArray(res?.data?.data) ? res?.data?.data : [];
-            setbrandData(data);
-        } catch (error) {
-            console.error(error);
-            setbrandData([]);
-        }
-    }
-
     /*---------- fetch table data ---------*/
     const fetchTableData = async () => {
         try {
@@ -392,14 +329,13 @@ const ProductCategory = () => {
     /*---------- Fetch table data ---------*/
     useEffect(() => {
         fetchTableData();
-        fetchBrand();
     }, []);
 
     /*---------- Handle edit params ---------*/
     useEffect(() => {
         if (!decodedId) {
-            setFormData({ brand: "", categoryCode: "", categoryName: "" });
-            setoriginal({ brand: "", catcode: "", catname: "" })
+            setFormData({ categoryName: "" });
+            setoriginal({ catname: "" })
             resetValidations();
             return;
         }
@@ -408,8 +344,6 @@ const ProductCategory = () => {
     }, [decodedId]);
 
     const isEdited =
-        String(formData.brand) !== String(original.brand) ||
-        formData.categoryCode.trim() !== original.catcode.trim() ||
         formData.categoryName.trim() !== original.catname.trim();
 
     return (
@@ -443,28 +377,6 @@ const ProductCategory = () => {
                         {/*---------------- Add section--------------- */}
                         <TabPanel value="1">
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <FormControl fullWidth size="small" required>
-                                    <InputLabel id="Brand">{brandLabel}</InputLabel>
-                                    <Select id='Brand-select' label={brandLabel} labelId="Brand" variant="outlined"
-                                        value={formData.brand} error={!!validation.brand} MenuProps={menuStyle}
-                                        onChange={(e) => formDataChange("brand", e.target.value)}
-                                    >
-                                        <MenuItem style={{ fontSize: "11px" }} value="">Select {brandLabel}</MenuItem>
-                                        {brandData?.map((item, index) => (
-                                            <MenuItem key={index || item.id} style={{ fontSize: "11px" }} value={item.id}>{item?.brand_name}</MenuItem>
-                                        ))}
-                                    </Select>
-                                    {validation.brand && <span style={{ color: "#d32f2f", fontSize: "9.1px", padding: "5px 0px 0px 12px" }}>{validation.brand}</span>}
-                                </FormControl>
-                                <TextField value={formData.categoryCode}
-                                    onChange={(e) => {
-                                        const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                        formDataChange("categoryCode", onlyText)
-                                    }}
-                                    required size='small'
-                                    variant='outlined' label={masterPanel["PCAT"] ? `${masterPanel["PCAT"]} Code` : "Product Category Code"}
-                                    error={!!validation.categoryCode}
-                                    helperText={validation.categoryCode && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryCode}</span>} />
                                 <TextField
                                     value={formData.categoryName}
                                     onChange={(e) => {
@@ -473,14 +385,15 @@ const ProductCategory = () => {
                                     }}
                                     required size='small'
                                     variant='outlined' label={masterPanel["PCAT"] ? `${masterPanel["PCAT"]} Name` : "Product Category Name"}
+                                    placeholder={masterPanel["PCAT"] ? `Enter ${masterPanel["PCAT"]} Name` : "Enter Product Category Name"}
                                     error={!!validation.categoryName}
                                     helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
                             </Box>
                             {(!decodedId && [0, 1, 2].includes(Number(accStat))) && (
-                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'>Create</Button>
+                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'>Submit</Button>
                             )}
                             {(decodedId && [0, 2].includes(Number(accStat))) && (
-                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'  disabled={!isEdited}>Update</Button>
+                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained' disabled={!isEdited}>Update</Button>
                             )}
                         </TabPanel>
                         {/*---------------- View section--------------- */}

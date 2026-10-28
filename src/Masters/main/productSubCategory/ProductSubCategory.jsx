@@ -1,20 +1,17 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import Layout from '../../../layout'
-import PageHeader from '../../../utils/PageHeader'
 import { Box, TextField, Button, FormControl, InputLabel, Select, MenuItem, IconButton, Typography } from '@mui/material'
 import Tab from '@mui/material/Tab';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import DataTable from '../../../utils/dataTable';
-import { useEffect } from 'react';
 import axios from "../../../services/api";
 import { MdOutlineEdit } from 'react-icons/md';
 import DeleteIcon from "@mui/icons-material/Delete";
 import useToast from "../../../utils/useToast";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ConfirmationDialog from "../../../utils/confirmDialog";
-import { useCallback } from 'react';
 import { getMasterPanel } from "../../../services/masterPanelService";
 import usePageTitle from '../../../services/usePageTitle'
 
@@ -53,41 +50,38 @@ const ProductSubCategory = () => {
     }, []);
 
     useEffect(() => {
-            const resolveAccStat = async () => {
-              try {
+        const resolveAccStat = async () => {
+            try {
                 const res = await axios.post("/getAccStat", {
-                  menu_url: "masters/catSub",
+                    menu_url: "masters/catSub",
                 });
-        
+
                 const stat = res.data?.data?.acc_stat;
                 if (stat !== null && stat !== undefined) {
-                  localStorage.setItem("acc_stat", stat);
-                  setAccStat(String(stat));
+                    localStorage.setItem("acc_stat", stat);
+                    setAccStat(String(stat));
                 }
-              } catch (err) {
+            } catch (err) {
                 console.log(err);
-              }
-            };
-        
-            resolveAccStat();
-          }, []);
+            }
+        };
+
+        resolveAccStat();
+    }, []);
 
     /*----------form fields ---------*/
     const [formData, setFormData] = useState({
         category: "",
-        categoryCode: "",
         categoryName: ""
     })
     /*----------form validations ---------*/
     const [validation, setValidations] = useState({
         category: "",
-        categoryCode: "",
         categoryName: ""
     })
-    /*---------- original cat code and name for edit---------*/
+    /*---------- original values for edit---------*/
     const [original, setoriginal] = useState({
         category: "",
-        catcode: "",
         catname: ""
     })
 
@@ -101,7 +95,6 @@ const ProductSubCategory = () => {
     const resetValidations = () => {
         setValidations({
             category: "",
-            categoryCode: "",
             categoryName: ""
         })
     }
@@ -152,25 +145,16 @@ const ProductSubCategory = () => {
             onConfirm: () => deleteCat(row),
         });
     };
-    
+
     /*----------check validations ---------*/
     const validations = () => {
         let isValid = true;
         const newValidations = {
             category: "",
-            categoryCode: "",
             categoryName: ""
         }
         if (!formData.category) {
             newValidations.category = `The ${catLabel} field is required`;
-            isValid = false;
-        }
-
-        if (!formData.categoryCode || formData.categoryCode.trim() === "") {
-            newValidations.categoryCode = `The ${subCatLabel} Code field is required.`;
-            isValid = false;
-        } else if (/[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryCode)) {
-            newValidations.categoryCode = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
             isValid = false;
         }
 
@@ -211,13 +195,12 @@ const ProductSubCategory = () => {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             let payload = {
                 cat_id: formData.category,
-                sub_code: formData.categoryCode,
                 sub_name: formData.categoryName
             }
             const res = await axios.post("/addCatSub", payload)
             if (res?.data?.success) {
                 showAlert.success(`${subCatLabel} Added Successfully`)
-                setFormData({ category: "", categoryCode: "", categoryName: "" });
+                setFormData({ category: "", categoryName: "" });
                 fetchTableData();
                 resetValidations();
             } else {
@@ -226,6 +209,8 @@ const ProductSubCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
+                if (val?.type === 1) setValidations(prev => ({ ...prev, category: val?.message || "" }));
+                else if (val?.type === 2) setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -243,15 +228,13 @@ const ProductSubCategory = () => {
             let payload = {
                 id: decodedId,
                 cat_id: formData.category,
-                hdnSubCode: original.catcode,
                 hdnSubName: original.catname,
-                sub_code: formData.categoryCode,
                 sub_name: formData.categoryName
             }
             const res = await axios.post("/subCatEdit", payload)
             if (res?.data?.success) {
                 showAlert.success(`${subCatLabel} Updated Successfully`)
-                setFormData({ category: "", categoryCode: "", categoryName: "" });
+                setFormData({ category: "", categoryName: "" });
                 setValue('1')
                 navigate(`/masters/catSub`)
             } else {
@@ -260,6 +243,8 @@ const ProductSubCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
+                if (val?.type === 1) setValidations(prev => ({ ...prev, category: val?.message || "" }));
+                else if (val?.type === 2) setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -279,12 +264,10 @@ const ProductSubCategory = () => {
             if (data && data.length > 0) {
                 setFormData({
                     category: data[0]?.cat_id || "",
-                    categoryCode: data[0]?.sub_code || "",
                     categoryName: data[0]?.sub_name || ""
                 });
                 setoriginal({
-                     category: data[0]?.cat_id || "",
-                    catcode: data[0]?.sub_code || "",
+                    category: data[0]?.cat_id || "",
                     catname: data[0]?.sub_name || ""
                 })
             }
@@ -306,7 +289,7 @@ const ProductSubCategory = () => {
             }
         } catch (error) {
             console.error(error);
-            showAlert.error("failed to delete")
+            showAlert.error(error?.response?.data?.message || "failed to delete")
         } finally {
             closeConfirmationDialog();
         }
@@ -323,12 +306,6 @@ const ProductSubCategory = () => {
         {
             field: "cat_name",
             headerName: `${catLabel} Name`,
-            filterable: true,
-            sortable: true,
-        },
-        {
-            field: "sub_code",
-            headerName: `${subCatLabel} Code`,
             filterable: true,
             sortable: true,
         },
@@ -360,7 +337,7 @@ const ProductSubCategory = () => {
     ]
 
     /*---------- fetch category ---------*/
-    const fetchBrand = async () => {
+    const fetchCategory = async () => {
         try {
             const res = await axios.post("/getCategory");
             const data = Array.isArray(res?.data?.data) ? res?.data?.data : [];
@@ -392,14 +369,14 @@ const ProductSubCategory = () => {
     /*---------- Fetch table data ---------*/
     useEffect(() => {
         fetchTableData();
-        fetchBrand();
+        fetchCategory();
     }, []);
 
     /*---------- Handle edit params ---------*/
     useEffect(() => {
         if (!decodedId) {
-            setFormData({ category: "", categoryCode: "", categoryName: "" });
-            setoriginal({category:"", catcode: "", catname: "" })
+            setFormData({ category: "", categoryName: "" });
+            setoriginal({ category: "", catname: "" })
             resetValidations();
             return;
         }
@@ -408,9 +385,8 @@ const ProductSubCategory = () => {
     }, [decodedId]);
 
     const isEdited =
-    String(formData.category) !== String(original.category) ||
-    formData.categoryCode.trim() !== original.catcode.trim() ||
-    formData.categoryName.trim() !== original.catname.trim();
+        String(formData.category) !== String(original.category) ||
+        formData.categoryName.trim() !== original.catname.trim();
 
     return (
         <Layout breadcrumb={[
@@ -458,15 +434,6 @@ const ProductSubCategory = () => {
                                     </Select>
                                     {validation.category && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.category}</span>}
                                 </FormControl>
-                                <TextField value={formData.categoryCode}
-                                    onChange={(e) => {
-                                        const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                        formDataChange("categoryCode", onlyText)
-                                    }}
-                                    required size='small'
-                                    variant='outlined' label={`${subCatLabel} Code`}
-                                    error={!!validation.categoryCode}
-                                    helperText={validation.categoryCode && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryCode}</span>} />
                                 <TextField
                                     value={formData.categoryName}
                                     onChange={(e) => {
@@ -475,14 +442,15 @@ const ProductSubCategory = () => {
                                     }}
                                     required size='small'
                                     variant='outlined' label={`${subCatLabel} Name`}
+                                    placeholder={`Enter ${subCatLabel} Name`}
                                     error={!!validation.categoryName}
                                     helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
                             </Box>
                             {(!decodedId && [0, 1, 2].includes(Number(accStat))) && (
-                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2,textTransform:'none' }} color="primary" variant='contained'>Create</Button>
+                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'>Submit</Button>
                             )}
                             {(decodedId && [0, 2].includes(Number(accStat))) && (
-                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2,textTransform:'none' }} color="primary" variant='contained' disabled={!isEdited}>Update</Button>
+                                <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained' disabled={!isEdited}>Update</Button>
                             )}
                         </TabPanel>
                         {/*---------------- View section--------------- */}
