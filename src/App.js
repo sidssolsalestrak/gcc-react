@@ -1,5 +1,5 @@
 import "./App.css";
-import { useEffect,useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLoader } from "./utils/LoaderContext";
 import { setLoader } from "./services/api";
 import Dashboard from "./dashboard/Dashboard";
@@ -11,7 +11,7 @@ import {
   Outlet,
 } from "react-router-dom";
 import TokenHandler from "./services/TokenHandler";
-import { SnackbarProvider,useSnackbar } from "notistack";
+import { SnackbarProvider, useSnackbar } from "notistack";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@emotion/react";
 import theme from "./theme";
@@ -31,8 +31,6 @@ import MenuMaster from "./Masters/AdminPanel/MenuMaster";
 import AppWidgetMaster from "./Masters/AdminPanel/AppWidgetMaster";
 import AppVersion from "./Masters/AdminPanel/AppVersion";
 import WebMenuMaster from "./Masters/AdminPanel/WebMenuMaster";
-import AddProduct from "./Masters/main/product/AddProduct";
-import ViewProduct from "./Masters/main/product/ViewProduct";
 import Stockist from "./Masters/main/stockist/Stockist";
 import AwsLogs from "./Masters/AdminPanel/AwsLogs";
 import ApiProcessing from "./Masters/AdminPanel/ApiProcessing";
@@ -49,8 +47,8 @@ import DailyActivityReport from "./ExtractReport/DailyActivityReport";
 import DataSubmissionLog from "./ExtractReport/DataSubmissionLog";
 import KPIReport from "./ExtractReport/KPIReport";
 import StockAndSalesDetails from "./ExtractReport/StockAndSalesDetails";
-import StockAndSalesSummary from "./ExtractReport/StockAndSalesSummary"
-import PrimaryOrder from "./ExtractReport/primaryOrder/PrimaryOrder"
+import StockAndSalesSummary from "./ExtractReport/StockAndSalesSummary";
+import PrimaryOrder from "./ExtractReport/primaryOrder/PrimaryOrder";
 import OrderReport from "./ExtractReport/orderReport/OrderReport";
 import UserLog from "./view/UserLog";
 import CreateCustomer from "./view/account/CreateCustomer";
@@ -88,29 +86,25 @@ import PracticeType from "./Masters/AccountProfile/practiceType";
 import AdoptionStyle from "./Masters/AccountProfile/adoptionStyle";
 import DiseaseMas from "./Masters/AccountProfile/Diseasemas";
 import SocialType from "./Masters/AccountProfile/Socialtype";
+import MarketingInput from "./Masters/main/city/MarketingInput";
+import PharmacyType from "./Masters/main/city/PharmacyType.jsx";
+import Product from "./Masters/main/product/Product.jsx";
+import Marketingtool from "./Masters/main/city/MarketingTool.jsx"
 
 function App() {
-   const relatedRoutes = {
+  const relatedRoutes = {
     "reports/sec_sales_data": [
       "reports/preview_stk_sales",
       "reports/primary_sale_report",
-      "/reports/email_process_data"
+      "/reports/email_process_data",
     ],
-    "masters/prod_mas":[
-      "masters/prodview"
-    ],
-    "Users/users_list":[
-      "users/adminUserNew"
-    ],
-    "customers/AllDoctors":[
-      "customers/editDoctor"
-    ],
-    "upload_closing":[
-      "upload_closing/index"
-    ]
+    "masters/prod_mas": ["masters/prodview"],
+    "Users/users_list": ["users/adminUserNew"],
+    "customers/AllDoctors": ["customers/editDoctor"],
+    upload_closing: ["upload_closing/index"],
   };
 
-    const getBasePath = (url) => {
+  const getBasePath = (url) => {
     // keep segments until we hit one that looks like base64/CI-encoded junk
     const segments = url.split("/").filter(Boolean);
     const baseSegments = [];
@@ -123,75 +117,77 @@ function App() {
   };
 
   const ProtectedRoute = () => {
-  const token = localStorage.getItem("session-token");
-  const location = useLocation();
-  const { enqueueSnackbar } = useSnackbar();
-  const lastWarnedPath = useRef(null);
+    const token = localStorage.getItem("session-token");
+    const location = useLocation();
+    const { enqueueSnackbar } = useSnackbar();
+    const lastWarnedPath = useRef(null);
 
-  const rawMenuUrls = localStorage.getItem("menu_urls");
-  const menuUrls = rawMenuUrls ? JSON.parse(rawMenuUrls) : [];
+    const rawMenuUrls = localStorage.getItem("menu_urls");
+    const menuUrls = rawMenuUrls ? JSON.parse(rawMenuUrls) : [];
 
-  const allowList = ["/dashboard", "/change_password", "/orderApproval/orders","/mobile/Orders","/dashboard/primarysalesview"];
-  const currentPath = location.pathname;
+    const allowList = [
+      "/dashboard",
+      "/change_password",
+      "/orderApproval/orders",
+      "/mobile/Orders",
+      "/dashboard/primarysalesview",
+    ];
+    const currentPath = location.pathname;
 
-  const isAllowed =
-  !token
-    ? false
-     : currentPath.startsWith("/Auth/forgot_paswd/") ||
-      allowList.includes(currentPath) ||
-      menuUrls.some((url) => {
-        if (!url || url === "#") return false;
+    const isAllowed = !token
+      ? false
+      : currentPath.startsWith("/Auth/forgot_paswd/") ||
+        allowList.includes(currentPath) ||
+        menuUrls.some((url) => {
+          if (!url || url === "#") return false;
 
-        const basePath = getBasePath(url);
-        if (!basePath) return false;
-        const normalizedUrl = "/" + basePath;
-        const segmentCount = basePath.split("/").filter(Boolean).length;
+          const basePath = getBasePath(url);
+          if (!basePath) return false;
+          const normalizedUrl = "/" + basePath;
+          const segmentCount = basePath.split("/").filter(Boolean).length;
 
-        // exact match always allowed
-        if (currentPath === normalizedUrl) return true;
+          // exact match always allowed
+          if (currentPath === normalizedUrl) return true;
 
-        // prefix match only for multi-segment base paths (real param-based sub-routes),
-        // NOT for single top-level segments like "dashboard" which would otherwise
-        // whitelist every /dashboard/* page
-        if (
-          segmentCount > 1 &&
-          currentPath.startsWith(normalizedUrl + "/")
-        ) {
-          return true;
-        }
+          // prefix match only for multi-segment base paths (real param-based sub-routes),
+          // NOT for single top-level segments like "dashboard" which would otherwise
+          // whitelist every /dashboard/* page
+          if (segmentCount > 1 && currentPath.startsWith(normalizedUrl + "/")) {
+            return true;
+          }
 
-        const children = relatedRoutes[url] || relatedRoutes[basePath] || [];
-        return children.some((childUrl) => {
-          const normalizedChild = "/" + childUrl.replace(/^\/+/, "");
-          return (
-            currentPath === normalizedChild ||
-            currentPath.startsWith(normalizedChild + "/")
-          );
+          const children = relatedRoutes[url] || relatedRoutes[basePath] || [];
+          return children.some((childUrl) => {
+            const normalizedChild = "/" + childUrl.replace(/^\/+/, "");
+            return (
+              currentPath === normalizedChild ||
+              currentPath.startsWith(normalizedChild + "/")
+            );
+          });
         });
-      });
 
-  useEffect(() => {
-    if (token && !isAllowed && lastWarnedPath.current !== currentPath) {
-      lastWarnedPath.current = currentPath;
-      enqueueSnackbar("You don't have access to this page", {
-        variant: "warning",
-        preventDuplicate: true,
-        key: `access-denied-${currentPath}`,
-      });
+    useEffect(() => {
+      if (token && !isAllowed && lastWarnedPath.current !== currentPath) {
+        lastWarnedPath.current = currentPath;
+        enqueueSnackbar("You don't have access to this page", {
+          variant: "warning",
+          preventDuplicate: true,
+          key: `access-denied-${currentPath}`,
+        });
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPath]);
+
+    if (!token) {
+      return <Navigate to="/login" replace />;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPath]);
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+    if (!isAllowed) {
+      return <Navigate to="/dashboard" replace />;
+    }
 
-  if (!isAllowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Outlet />;
-};
+    return <Outlet />;
+  };
 
   const PublicRoute = () => {
     const token = localStorage.getItem("session-token");
@@ -233,10 +229,21 @@ function App() {
             <Route path="/masters/dept/:id?" element={<Department />} />
             <Route path="/masters/designation/:id?" element={<Designation />} />
             <Route path="/masters/city_mas/:id?" element={<City />} />
-            <Route path="/masters/prod_mas/:id?" element={<AddProduct />} />
-            <Route path="/masters/prodview" element={<ViewProduct />} />
+            <Route path="/masters/prodview/:id?" element={<Product />} />
             <Route path="/masters/stockist/:id?" element={<Stockist />} />
-
+            <Route
+              path="/masters/marketingInput/:id?"
+              element={<MarketingInput />}
+            />
+            <Route
+              path="/masters/pharmacyType/:id?"
+              element={<PharmacyType />}
+            />
+            <Route
+              path="/masters/marketing/:id?"
+              element={<Marketingtool />}
+            />
+            <Route path="/masters/prodview/:id?" element={<Product />} />
             {/* Admin Panel master routes */}
             <Route
               path="/masters/repTabs/:userId?/:cusId?"
@@ -325,23 +332,29 @@ function App() {
               path="/reports/data_submission_log/:encodeyear?/:encodezone?/:encoderegion?"
               element={<DataSubmissionLog />}
             />
-            <Route
-              path="/reports/extract_new"
-              element={<AccountExtract />}
-            />
-            <Route
-              path="/reports/capability_report"
-              element={<KPIReport />}
-            />
+            <Route path="/reports/extract_new" element={<AccountExtract />} />
+            <Route path="/reports/capability_report" element={<KPIReport />} />
             <Route
               path="/Users/userLog/:module?/:fromDt?/:toDt?/:userType?/:user?"
               element={<UserLog />}
             />
 
-            <Route path="/customers/editDoctor/:id?/:reqType?/:req?" element={<CreateCustomer />} />
-            <Route path="/customers/editDoctor/:id?/:reqType?" element={<CreateCustomer />} />
-            <Route path="/customers/editDoctor/:id?" element={<CreateCustomer />} />
-            <Route path="/customers/CreateDoctor" element={<CreateCustomer />} />
+            <Route
+              path="/customers/editDoctor/:id?/:reqType?/:req?"
+              element={<CreateCustomer />}
+            />
+            <Route
+              path="/customers/editDoctor/:id?/:reqType?"
+              element={<CreateCustomer />}
+            />
+            <Route
+              path="/customers/editDoctor/:id?"
+              element={<CreateCustomer />}
+            />
+            <Route
+              path="/customers/CreateDoctor"
+              element={<CreateCustomer />}
+            />
 
             <Route
               path="/reports/active_sales/:zoneid?/:regionid?/:usertypeId?/:userid?/:distributorid?"
@@ -383,15 +396,15 @@ function App() {
               path="/dashboard/salesanalysis/:encYear?/:enType?/:enSubCat?"
               element={<SalesAnalysisReport />}
             />
-            <Route  
+            <Route
               path="/reports/sec_sales_data"
               element={<DataSubmissionStatus />}
             />
-            <Route 
-               path="/reports/preview_stk_sales/:closeDate?/:stkid?/:stkLabel?"
-               element={<PreviewStkSales/>}
-              />
-            <Route 
+            <Route
+              path="/reports/preview_stk_sales/:closeDate?/:stkid?/:stkLabel?"
+              element={<PreviewStkSales />}
+            />
+            <Route
               path="/reports/email_process_data"
               element={<EmailProcessData />}
             />
@@ -411,45 +424,87 @@ function App() {
              <Route path="/masters/loyalty/:editloyaltyId?" element={<LoyaltyType />}      />
              <Route path="/masters/practiceType/:editpracticeId?" element={<PracticeType />} />
              <Route path="/masters/adoptionStyle/:editAdoptionId?" element={<AdoptionStyle />}          />
+            <Route
+              path="/reports/primary_sale_report/:decMonth?/:decStkId?/:decValue?"
+              element={<PrimarySalesTransact />}
+            />
+            <Route
+              path="/upload_closing/index/:defEncode?/:enMonth?/:endistributor?/:enProcessStat?/:enProcessDataStat?"
+              element={<UploadClosing />}
+            />
+            <Route path="/upload_closing" element={<UploadClosing />} />
+            <Route path="/input/uploadBilling" element={<UploadBilling />} />
+            <Route path="/change_password" element={<ChangePassword />} />
+            <Route
+              path="/masters/hospital/:editHospId?"
+              element={<Hospital />}
+            />
+            <Route
+              path="/masters/objective/:editObjId?"
+              element={<Objective />}
+            />
+            <Route
+              path="/masters/sampleType/:editSampleId?"
+              element={<SampleType />}
+            />
+            <Route path="/masters/event/:editEventId?" element={<Event />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
 
           {/* <Route path="/login" element={<Login />} /> */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
-           <Route path="/" element={<LoginProjCode />} />
-           <Route path="/passexpReset" element={<PassExpReset />}   />
-           <Route path="/otp_validate" element={<OtpTwoStepValidate />}   />
+            <Route path="/" element={<LoginProjCode />} />
+            <Route path="/passexpReset" element={<PassExpReset />} />
+            <Route path="/otp_validate" element={<OtpTwoStepValidate />} />
           </Route>
 
           {/* extract and report */}
           <Route element={<ProtectedRoute />}>
-          <Route path="/reports/reg_sec_sales" element={<RegionWiseSales />} />
-          <Route
-            path="/reports/stk_sales_details"
-            element={<StockAndSalesDetails />}
-          />
-          <Route
-            path="/reports/stk_sales_summary"
-            element={<StockAndSalesSummary />}
-          />
-          <Route path="/reports/primary_order" element={<PrimaryOrder />} />
-          <Route path="/reports/primary_order_new" element={<PrimaryOrder />} />
-          <Route path="/reports/pcm_kam" element={<OrderReport />} />
-          <Route path="/reports/pcm_kam_new" element={<OrderReport />} />
-          <Route path="/reports/stock_salesReport" element={<StockAndSalesReport />} />
+            <Route
+              path="/reports/reg_sec_sales"
+              element={<RegionWiseSales />}
+            />
+            <Route
+              path="/reports/stk_sales_details"
+              element={<StockAndSalesDetails />}
+            />
+            <Route
+              path="/reports/stk_sales_summary"
+              element={<StockAndSalesSummary />}
+            />
+            <Route path="/reports/primary_order" element={<PrimaryOrder />} />
+            <Route
+              path="/reports/primary_order_new"
+              element={<PrimaryOrder />}
+            />
+            <Route path="/reports/pcm_kam" element={<OrderReport />} />
+            <Route path="/reports/pcm_kam_new" element={<OrderReport />} />
+            <Route
+              path="/reports/stock_salesReport"
+              element={<StockAndSalesReport />}
+            />
 
-           <Route path="/reports/beat_coverage" element={<BeatCoverage />} />
+            <Route path="/reports/beat_coverage" element={<BeatCoverage />} />
 
-          {/* sales analysis */}
-          <Route path="/reports/performance_report" element={<SalesAnalysis />} />
-          <Route path="/dashboard/districtsales" element={<AreaWiseSalesAnalysis />} />
+            {/* sales analysis */}
+            <Route
+              path="/reports/performance_report"
+              element={<SalesAnalysis />}
+            />
+            <Route
+              path="/dashboard/districtsales"
+              element={<AreaWiseSalesAnalysis />}
+            />
 
-          <Route path="/orderApproval/orders" element={<OrderApproval />} />
-           <Route path="/mobile/Orders" element={<MobileOrders />} />
+            <Route path="/orderApproval/orders" element={<OrderApproval />} />
+            <Route path="/mobile/Orders" element={<MobileOrders />} />
 
-          {/* TRANSACTIONS */}
-          <Route path="/input/stock_sales/:closeDate?/:stkid?/:stkLabel?" element={<StockAndSalesUploadNew  />} />
+            {/* TRANSACTIONS */}
+            <Route
+              path="/input/stock_sales/:closeDate?/:stkid?/:stkLabel?"
+              element={<StockAndSalesUploadNew />}
+            />
           </Route>
         </Routes>
       </BrowserRouter>

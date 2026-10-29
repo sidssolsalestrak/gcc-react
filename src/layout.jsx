@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
-import camlinLogo from "./assets/kc.png";
+import gccLogo from "./assets/naos-logo-white.jpg";
 import {
   AppBar,
   Toolbar,
@@ -678,9 +678,9 @@ const Layout = ({ children, breadcrumb = [] }) => {
               {/* Camlin logo */}
               <Box sx={{ display: { xs: "block", sm: "block" } }}>
                 <img
-                  src={camlinLogo}
+                  src={gccLogo}
                   alt="camlin Logo"
-                  style={{ width: isMobile ? "8rem" : "10rem" }}
+                  style={{ width: isMobile ? "4rem" : "6rem" }}
                 />
               </Box>
 
