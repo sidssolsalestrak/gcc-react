@@ -80,6 +80,12 @@ import Hospital from "./Masters/classifymaster/HospitalInstitution";
 import Objective from "./Masters/classifymaster/objective";
 import SampleType from "./Masters/classifymaster/sampleType";
 import Event from "./Masters/classifymaster/event";
+import Potentialityclass from "./Masters/AccountProfile/potentialityclass";
+import LoyaltyType from "./Masters/AccountProfile/loyaltyType";
+import PracticeType from "./Masters/AccountProfile/practiceType";
+import AdoptionStyle from "./Masters/AccountProfile/adoptionStyle";
+import DiseaseMas from "./Masters/AccountProfile/Diseasemas";
+import SocialType from "./Masters/AccountProfile/Socialtype";
 import MarketingInput from "./Masters/main/city/MarketingInput";
 import PharmacyType from "./Masters/main/city/PharmacyType.jsx";
 import Product from "./Masters/main/product/Product.jsx";
@@ -196,10 +202,12 @@ function App() {
       {/* <SnackbarProvider maxSnack={3}> */}
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/Auth/forgot_paswd/:resetToken"
-            element={<ForgotPassword />}
-          />
+           <Route
+              path="/Auth/forgot_paswd/:resetToken"
+              element={<ForgotPassword />}
+           />
+          <Route path="/masters/disease/:editDiseaseId?"  element={<DiseaseMas />}        />
+          <Route path="/masters/social/:editSocialId?"  element={<SocialType />}  />
           <Route element={<ProtectedRoute />}>
             <Route path="/:token" element={<TokenHandler />} />
             {/* <Route path="/" element={<Dashboard />} /> */}
@@ -400,6 +408,15 @@ function App() {
               path="/reports/email_process_data"
               element={<EmailProcessData />}
             />
+             <Route path="/change_password"  element={<ChangePassword />}  />
+             <Route path="/masters/hospital/:editHospId?" element={<Hospital />} />
+             <Route path="/masters/objective/:editObjId?" element={<Objective />} />
+             <Route path="/masters/sampleType/:editSampleId?" element={<SampleType />} />
+             <Route path="/masters/event/:editEventId?" element={<Event />} />
+             <Route path="/masters/potential/:editPotId?"  element={<Potentialityclass />}   />
+             <Route path="/masters/loyalty/:editloyaltyId?" element={<LoyaltyType />}      />
+             <Route path="/masters/practiceType/:editpracticeId?" element={<PracticeType />} />
+             <Route path="/masters/adoptionStyle/:editAdoptionId?" element={<AdoptionStyle />}          />
             <Route
               path="/reports/primary_sale_report/:decMonth?/:decStkId?/:decValue?"
               element={<PrimarySalesTransact />}

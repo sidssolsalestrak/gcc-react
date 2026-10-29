@@ -160,7 +160,7 @@ export default function Hospital() {
 
         if (!hospName || hospName.trim() === "") {
             setHospError(true)
-            setHospErrorMsg(`The ${hospLabel} field is required.`)
+            setHospErrorMsg(`The Name field is required.`)
             isValid = false
         }
 
@@ -194,9 +194,9 @@ export default function Hospital() {
             const payload = {
                 hosp_name: hospName.trim(),
                 beat_id: selBeat,
-                hosp_addr: hospAddr.trim(),
-                hosp_tel: hospTel,
-                hosp_pin: hospPin
+                hosp_addr: hospAddr.trim() || null,
+                hosp_tel: hospTel || null,
+                hosp_pin: hospPin || null
             }
 
             if (decodedEditHospId) {
@@ -381,7 +381,7 @@ export default function Hospital() {
                                         size="small"
                                         required
                                         error={beatError}
-                                        helperText={beatError ? `The ${beatLabel} Name field is required.` : ""}
+                                        helperText={beatError ? `The ${beatLabel}  field is required.` : ""}
                                     />
                                 )}
                             />
