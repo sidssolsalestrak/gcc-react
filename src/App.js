@@ -82,6 +82,12 @@ import Hospital from "./Masters/classifymaster/HospitalInstitution";
 import Objective from "./Masters/classifymaster/objective";
 import SampleType from "./Masters/classifymaster/sampleType";
 import Event from "./Masters/classifymaster/event";
+import Potentialityclass from "./Masters/AccountProfile/potentialityclass";
+import LoyaltyType from "./Masters/AccountProfile/loyaltyType";
+import PracticeType from "./Masters/AccountProfile/practiceType";
+import AdoptionStyle from "./Masters/AccountProfile/adoptionStyle";
+import DiseaseMas from "./Masters/AccountProfile/Diseasemas";
+import SocialType from "./Masters/AccountProfile/Socialtype";
 
 function App() {
    const relatedRoutes = {
@@ -204,6 +210,8 @@ function App() {
               path="/Auth/forgot_paswd/:resetToken"
               element={<ForgotPassword />}
            />
+          <Route path="/masters/disease/:editDiseaseId?"  element={<DiseaseMas />}        />
+          <Route path="/masters/social/:editSocialId?"  element={<SocialType />}  />
           <Route element={<ProtectedRoute />}>
             <Route path="/:token" element={<TokenHandler />} />
             {/* <Route path="/" element={<Dashboard />} /> */}
@@ -399,6 +407,10 @@ function App() {
              <Route path="/masters/objective/:editObjId?" element={<Objective />} />
              <Route path="/masters/sampleType/:editSampleId?" element={<SampleType />} />
              <Route path="/masters/event/:editEventId?" element={<Event />} />
+             <Route path="/masters/potential/:editPotId?"  element={<Potentialityclass />}   />
+             <Route path="/masters/loyalty/:editloyaltyId?" element={<LoyaltyType />}      />
+             <Route path="/masters/practiceType/:editpracticeId?" element={<PracticeType />} />
+             <Route path="/masters/adoptionStyle/:editAdoptionId?" element={<AdoptionStyle />}          />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
 
