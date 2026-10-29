@@ -83,7 +83,9 @@ import Event from "./Masters/classifymaster/event";
 import MarketingInput from "./Masters/main/city/MarketingInput";
 import PharmacyType from "./Masters/main/city/PharmacyType.jsx";
 import Product from "./Masters/main/product/Product.jsx";
-import Marketingtool from "./Masters/main/city/MarketingTool.jsx"
+import Marketingtool from "./Masters/main/city/MarketingTool.jsx";
+import CoachingCategory from "./Masters/coaching/CoachingCategory.jsx";
+import CoachingParameter from "./Masters/coaching/CoachingParameter.jsx";
 
 function App() {
   const relatedRoutes = {
@@ -121,10 +123,12 @@ function App() {
 
     const allowList = [
       "/dashboard",
-      "/change_password",
-      "/orderApproval/orders",
-      "/mobile/Orders",
-      "/dashboard/primarysalesview",
+  "/change_password",
+  "/orderApproval/orders",
+  "/mobile/Orders",
+  "/dashboard/primarysalesview",
+  "/masters/category",
+  "/masters/parameter",
     ];
     const currentPath = location.pathname;
 
@@ -234,6 +238,14 @@ function App() {
             <Route
               path="/masters/marketing/:id?"
               element={<Marketingtool />}
+            />
+             <Route
+              path="/masters/category/:id?"
+              element={<CoachingCategory />}
+            />
+             <Route
+              path="/masters/parameter/:id?"
+              element={<CoachingParameter />}
             />
             <Route path="/masters/prodview/:id?" element={<Product />} />
             {/* Admin Panel master routes */}
