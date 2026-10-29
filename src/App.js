@@ -408,13 +408,6 @@ function App() {
               path="/reports/email_process_data"
               element={<EmailProcessData />}
             />
-            <Route path="/reports/primary_sale_report/:decMonth?/:decStkId?/:decValue?" element={<PrimarySalesTransact />}  />
-            <Route 
-             path="/upload_closing/index/:defEncode?/:enMonth?/:endistributor?/:enProcessStat?/:enProcessDataStat?" 
-             element={<UploadClosing />} 
-             />
-             <Route path="/upload_closing" element={<UploadClosing />}  />
-             <Route path="/input/uploadBilling" element={<UploadBilling />}  />
              <Route path="/change_password"  element={<ChangePassword />}  />
              <Route path="/masters/hospital/:editHospId?" element={<Hospital />} />
              <Route path="/masters/objective/:editObjId?" element={<Objective />} />
