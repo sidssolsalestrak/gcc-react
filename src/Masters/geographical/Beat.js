@@ -146,6 +146,7 @@ export default function Beat() {
     }
 
     const fetchTerritoriesForEdit = async (area_id) => {
+        console.log("area id passing interritory",area_id)
         try {
             let response = await api.post("/getTerriTb", { ter_id: null, area_id: area_id })
             let data = Array.isArray(response.data.data) ? response.data.data : []
@@ -161,7 +162,7 @@ export default function Beat() {
             let data = response.data.data[0]
             setRegId(data.reg_id)
             setSelArea(data.areaId)
-            setHdnSelArea(data.area_id)
+            setHdnSelArea(data.areaId)
             setBeatName(data.beat_name)
             setHdnBeatName(data.beat_name)
             setTerritoryError(false)
@@ -169,7 +170,7 @@ export default function Beat() {
             setBeatError(false)
             setBeatErrorMsg("")
             setTabValue(0)
-            await fetchTerritoriesForEdit(data.area_id)
+            await fetchTerritoriesForEdit(data.areaId)
             setSelTerritory(data.ter_id)
             setHdnSelTerritory(data.ter_id)
             setIsAreaChanged(false)
@@ -329,6 +330,8 @@ export default function Beat() {
             )
         }
     ]
+
+    console.log("sel Area passing",selArea)
 
     return (
         <Layout
