@@ -196,7 +196,7 @@ export default function Beat() {
 
         if (!beatName || beatName.trim() === "") {
             setBeatError(true)
-            setBeatErrorMsg(`The ${beatLabel} Name field is required.`)
+            setBeatErrorMsg(`The ${beatLabel}  field is required.`)
             isValid = false
         }  else if (/[^a-zA-Z0-9_\-\/ ]/.test(beatName)) {
             setBeatError(true)
@@ -219,7 +219,8 @@ export default function Beat() {
                     id: decodedEditBeatId,
                     beat_name: beatName.trim(),
                     ter_id: selTerritory,
-                    check: check
+                    check: check,
+                    area_id: selArea
                 })
                 if (response.data.success) {
                     enqueueSnackbar(response.data.message, { variant: "success", anchorOrigin: { vertical: 'top', horizontal: 'center' } })
@@ -231,7 +232,8 @@ export default function Beat() {
             } else {
                 let response = await api.post("/beatCreate", {
                     beat_name: beatName.trim(),
-                    ter_id: selTerritory
+                    ter_id: selTerritory,
+                    area_id: selArea
                 })
                 if (response.data.success) {
                     enqueueSnackbar(response.data.message, { variant: 'success', anchorOrigin: { vertical: 'top', horizontal: 'center' } })
@@ -383,7 +385,7 @@ export default function Beat() {
                                         label={`${areaLabel}`}
                                         size="small"
                                         error={areaError}
-                                        helperText={areaError ? `The ${areaLabel} Name field is required.` : ""}
+                                        helperText={areaError ? `The ${areaLabel} field is required.` : ""}
                                     />
                                 )}
                             />
@@ -403,7 +405,7 @@ export default function Beat() {
                                         size="small"
                                         error={territoryError}
                                         required
-                                        helperText={territoryError ? `The ${territoryLabel} Name field is required.` : ""}
+                                        helperText={territoryError ? `The ${territoryLabel} field is required.` : ""}
                                     />
                                 )}
                             />
