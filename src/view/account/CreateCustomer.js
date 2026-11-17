@@ -5,6 +5,7 @@ import CommonAppSelect from "../../utils/CommonAppSelect";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import SecondaryInfo from "./SecondaryInfo";
 import ContactInfo from "./ContactInfo";
+import BillingInfo from "./BillingInfo";
 import CompetitorMappping from "./CompetitorMappping";
 import {
   Box, Grid, Typography, TextField, Button, Divider,
@@ -43,6 +44,7 @@ const DEFAULT_CLINIC = {
   clinicName: "",
   contactName: "",
   contactNo: "",
+  contactNo2: "",
   hospitalAttached: "0",
   pharmacyAttached: "0",
   pharmacistName: "",
@@ -50,9 +52,56 @@ const DEFAULT_CLINIC = {
   meetingTime: "",
   address: "",
   city: "",
+  cityId: "0",
   zipCode: "",
+  shipStat: false,
+  shipAddress: "",
+  shipCity: "",
+  shipCityId: "0",
+  shipPincode: "",
   stkId: "0",
   phChain: "",
+  clinicPhoto: "",
+  clinicPhotoName: "",
+  letterHead: "",
+  letterHeadName: "",
+  gstBoard: "",
+  gstBoardName: "",
+};
+
+// Max Contact Info rows when editing an existing record.
+// Creation is limited to 1 (see maxClinics inside CreateCustomer).
+const MAX_CLINICS = 10;
+
+const DEFAULT_BILLING = {
+  cusCode: "",
+  amtCode: "",
+  pisplCode: "",
+  instagram: "",
+  crLimit: "",
+  payTerms: "61",
+  payMode: "0",
+  currency: "0",
+  advStat: "1",
+  gstStat: false,
+  gstNo: "",
+  panNo: "",
+  msmeNo: "",
+  drRegNo: "",
+  dlNA: true,
+  dl1: "",
+  dl1From: "",
+  dl1To: "",
+  dl2: "",
+  dl2From: "",
+  dl2To: "",
+  retNA: true,
+  retLic1: "",
+  retLic1From: "",
+  retLic1To: "",
+  retLic2: "",
+  retLic2From: "",
+  retLic2To: "",
 };
 
 function CreateCustomer() {
@@ -66,6 +115,10 @@ function CreateCustomer() {
   let decodedReqType = reqType ? safeAtob(reqType) : "0";
   let decodedReq = req ? safeAtob(req) : "0";
   const isTemp = decodedReq !== "0";
+
+  // Creation → only 1 Contact Info row; editing → up to MAX_CLINICS
+  const isCreateMode = !decodedID || decodedID === "0";
+  const maxClinics = isCreateMode ? 1 : MAX_CLINICS;
 
   const showAlert = useToast();
 
@@ -119,10 +172,17 @@ function CreateCustomer() {
   const [genderOptions, setGenderOptions] = useState([]);
   const [regionOptions, setRegionOptions] = useState([]);
   const [ageOptions, setAgeOptions] = useState([]);
+  const [socialtypeOption,setSocialtypeOption] = useState([])
+  const [commonDiseaseOption,setCommonDiseaseOption] = useState([])
+  const [campaignoption, setCampaignOption] = useState([])
   const [potentialityOptions, setPotentialityOptions] = useState([]);
   const [frequencyOptions, setFrequencyOptions] = useState([]);
   const [loyaltyTypeOptions, setLoyaltyTypeOptions] = useState([]);
   const [adoptionOptions, setAdoptionOptions] = useState([]);
+  const [payModeOptions, setPayModeOptions] = useState([]);
+  const [currencyOptions, setCurrencyOptions] = useState([]);
+  const [retailTypeOptions, setRetailTypeOptions] = useState([]);
+  const [phChainDataOption,setPhChainDataOption] = useState([])
   const [repInchargeOptions, setRepInchargeOptions] = useState([]);
   const [repPOSOptions, setRepPOSOptions] = useState([]);
   const [hospitalOptions, setHospitalOptions] = useState([]);
@@ -136,7 +196,7 @@ function CreateCustomer() {
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [compModalOpen, setCompModalOpen] = useState(false);
   const [competitorRows, setCompetitorRows] = useState([]);
-  // ── 3 Contact Info rows ──
+  // ── Contact Info rows (user can add more via the Add icon) ──
   const [clinics, setClinics] = useState([
     { ...DEFAULT_CLINIC },
   ]);
@@ -156,14 +216,20 @@ function CreateCustomer() {
     dobNA:true,
     anniversaryNA:true,
     competitorPref: "",
+    socialType: "0",
+    commondisease: [],
+    campaign: "0",
+    ...DEFAULT_BILLING
   });
 
   const isHcpField = (form.cusType === "1"); // hcpDiv2 fields only show for HCP
   const isRetailerField = (form.cusType === "2"); // retailerDiv fields only show for Retailer
   const [brandData, setBrandData] = useState([]);
+  const [brandsPrescribed, setBrandsPrescribed] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
   const location=useLocation()
-  const competitorBrands = brandData
-  .filter(b => b.focus === 1 || b.reminder === 1)
+  const competitorBrands = brandsPrescribed
+  .filter(b => b.prescribed === 1)
   .map(b => b.subCatId);
   const [userType, setUserType] = useState(null)
   const [pendingRequest, setPendingRequest] = useState(null); // { request_type: 2 or 3 } or null
@@ -193,8 +259,8 @@ function CreateCustomer() {
   const [originalSnapshot, setOriginalSnapshot] = useState(null);
 
   // ── Normalizes only user-editable fields so unrelated noise (beatOptions,
-  //    clinicId, brand names, etc.) never triggers a false "changed" state.
-  const buildComparableSnapshot = (formVal, clinicsVal, brandDataVal, competitorRowsVal) => {
+  //    clinicId, brand names, _key, etc.) never triggers a false "changed" state.
+  const buildComparableSnapshot = (formVal, clinicsVal, brandDataVal, competitorRowsVal, prescribedVal) => {
     const f = {
       cusType: formVal.cusType || "",
       retailerType: formVal.retailerType || "",
@@ -215,6 +281,9 @@ function CreateCustomer() {
       keyOpinionLeader: formVal.keyOpinionLeader !==null && formVal.keyOpinionLeader!==undefined ? String(formVal.keyOpinionLeader):"0" ,
       adoption: formVal.adoption || "",
       marketingTools: [...(formVal.marketingTools || [])].sort(), 
+      socialType: formVal.socialType || "0",
+      campaign: formVal.campaign || "0",
+      commondisease: [...(formVal.commondisease || [])].map(String).sort(),
       region: formVal.region || "",
       competitorPref: formVal.competitorPref || "",
       hobbies: formVal.hobbies || "",
@@ -226,6 +295,34 @@ function CreateCustomer() {
       anniversaryNA: !!formVal.anniversaryNA,
       customerLatitude: String(formVal.customerLatitude || "0"),
       customerLongitude: String(formVal.customerLongitude || "0"),
+      cusCode: formVal.cusCode || "",
+      amtCode: formVal.amtCode || "",
+      pisplCode: formVal.pisplCode || "",
+      instagram: formVal.instagram || "",
+      crLimit: formVal.crLimit || "",
+      payTerms: formVal.payTerms || "",
+      payMode: formVal.payMode || "0",
+      currency: formVal.currency || "0",
+      advStat: formVal.advStat || "0",
+      gstStat: !!formVal.gstStat,
+      gstNo: formVal.gstStat ? (formVal.gstNo || "") : "",
+      panNo: formVal.panNo || "",
+      msmeNo: formVal.msmeNo || "",
+      drRegNo: formVal.drRegNo || "",
+      dlNA: !!formVal.dlNA,
+      dl1: formVal.dlNA ? "" : (formVal.dl1 || ""),
+      dl1From: formVal.dlNA ? "" : (formVal.dl1From || ""),
+      dl1To: formVal.dlNA ? "" : (formVal.dl1To || ""),
+      dl2: formVal.dlNA ? "" : (formVal.dl2 || ""),
+      dl2From: formVal.dlNA ? "" : (formVal.dl2From || ""),
+      dl2To: formVal.dlNA ? "" : (formVal.dl2To || ""),
+      retNA: !!formVal.retNA,
+      retLic1: formVal.retNA ? "" : (formVal.retLic1 || ""),
+      retLic1From: formVal.retNA ? "" : (formVal.retLic1From || ""),
+      retLic1To: formVal.retNA ? "" : (formVal.retLic1To || ""),
+      retLic2: formVal.retNA ? "" : (formVal.retLic2 || ""),
+      retLic2From: formVal.retNA ? "" : (formVal.retLic2From || ""),
+      retLic2To: formVal.retNA ? "" : (formVal.retLic2To || ""),
     };
 
     const c = (clinicsVal || []).map(cl => ({
@@ -235,15 +332,25 @@ function CreateCustomer() {
       clinicName: cl.clinicName || "",
       contactName: cl.contactName || "",
       contactNo: cl.contactNo || "",
+      contactNo2: cl.contactNo2 || "",
       hospitalAttached: cl.hospitalAttached || "0",
       pharmacyAttached: cl.pharmacyAttached || "0",
       meetingDays: [...(cl.meetingDays || [])].sort(),
       meetingTime: cl.meetingTime || "",
       address: cl.address || "",
       city: cl.city || "",
+      cityId: String(cl.cityId || "0"),
       zipCode: String(cl.zipCode || ""),
+      shipStat: !!cl.shipStat,
+      shipAddress: cl.shipAddress || "",
+      shipCity: cl.shipCity || "",
+      shipCityId: String(cl.shipCityId || "0"),
+      shipPincode: String(cl.shipPincode || ""),
       stkId: cl.stkId || "0",
       phChain: cl.phChain || "",
+      clinicPhoto: typeof cl.clinicPhoto === "string" ? cl.clinicPhoto : (cl.clinicPhoto ? "new:" + cl.clinicPhoto.name : ""),
+      letterHead: typeof cl.letterHead === "string" ? cl.letterHead : (cl.letterHead ? "new:" + cl.letterHead.name : ""),
+      gstBoard: typeof cl.gstBoard === "string" ? cl.gstBoard : (cl.gstBoard ? "new:" + cl.gstBoard.name : ""),
     }));
 
     const b = (brandDataVal || [])
@@ -268,12 +375,17 @@ function CreateCustomer() {
       .sort((x, y) => String(x.pid).localeCompare(String(y.pid)) || String(x.subcat_id).localeCompare(String(y.subcat_id)));
       console.log("competitior rows which passing compare",comp)
 
-    return JSON.stringify({ f, c, b, comp });
+    const presc = (prescribedVal || [])
+      .filter(p => p.prescribed === 1)
+      .map(p => String(p.subCatId))
+      .sort();
+
+    return JSON.stringify({ f, c, b, comp, presc });
   };
 
   const isUpdateDisabled = () => {
     if (originalSnapshot === null) return false; // baseline not loaded yet — don't block
-    return buildComparableSnapshot(form, clinics, brandData, competitorRows) === originalSnapshot;
+    return buildComparableSnapshot(form, clinics, brandData, competitorRows, brandsPrescribed) === originalSnapshot;
   };
 
    // helper — a row only "counts" if it has a real, non-zero value somewhere
@@ -286,7 +398,7 @@ function CreateCustomer() {
         (r.other_name && r.other_name.trim() !== '');
 
   const { handleSubmit, handleUpdate } = useSubmitCustomer({
-    form, clinics, brandData, competitorBrands, competitorRows, setFieldErrors, setForm
+    form, clinics, brandData, competitorBrands, competitorRows, brandsPrescribed, setFieldErrors, setForm, fieldConfig
   });
 
  const validateEmail = (email) => {
@@ -316,7 +428,7 @@ const validateForm = () => {
   }
 
   if (!form.firstName || !form.firstName.trim()) {
-    newErrors.firstName = "Store Name is required";
+    newErrors.firstName = "First Name is required";
     hasError = true;
   }
 
@@ -329,6 +441,7 @@ const validateForm = () => {
     newErrors.stkId = "Distributor is required";
     hasError = true;
   }
+  
 
   if (form.sendSms === "1" && (!form.mobile || !form.mobile.trim())) {
     newErrors.mobile = "Mobile No is required";
@@ -356,6 +469,87 @@ const validateForm = () => {
     newErrors.location = "Please Add Location By Clicking Location Icon!!";
     hasError = true;
   }
+
+  if (fieldConfig["Currency"]?.show && (!form.currency || form.currency === "0")) {
+    newErrors.currency = "Currency is required";
+    hasError = true;
+  }
+
+  if (fieldConfig["Customer-GST No"]?.show && form.gstStat && !(form.gstNo || "").trim()) {
+    newErrors.gstNo = "Customer GST No is required";
+    hasError = true;
+  }
+
+  if (fieldConfig["Shipping Address"]?.show && !(clinics[0]?.shipAddress || "").trim()) {
+    newErrors.shipAddress = "Shipping Address is required";
+    hasError = true;
+  }
+  if (fieldConfig["Shipping City"]?.show && !(clinics[0]?.shipCity || "").trim()) {
+    newErrors.shipCity = "Shipping City is required";
+    hasError = true;
+  }
+  if (fieldConfig["Shipping Pincode"]?.show && !(clinics[0]?.shipPincode || "").trim()) {
+    newErrors.shipPincode = "Shipping Pincode is required";
+    hasError = true;
+  }
+
+  if (fieldConfig["Medical Reg. No"]?.show && !(form.drRegNo || "").trim()) {
+    newErrors.drRegNo = "Medical Reg. No is required";
+    hasError = true;
+  }
+
+  if (fieldConfig["Billing Address"]?.show && !(clinics[0]?.address || "").trim()) {
+    newErrors.address = "Billing Address is required";
+    hasError = true;
+  }
+  if (fieldConfig["City"]?.show && (!clinics[0]?.cityId || clinics[0].cityId === "0")) {
+    newErrors.city = "Billing City is required";
+    hasError = true;
+  }
+  if (fieldConfig["Billing Pincode"]?.show && !String(clinics[0]?.zipCode || "").trim()) {
+    newErrors.zipCode = "Billing PIN Code is required";
+    hasError = true;
+  }
+
+  if (fieldConfig["DL.1"]?.show && !form.dlNA) {
+    if (!(form.dl1 || "").trim()) { newErrors.dl1 = "DL 1 is required"; hasError = true; }
+    if (!form.dl1From) { newErrors.dl1From = "DL 1 Valid From is required"; hasError = true; }
+    if (!form.dl1To) { newErrors.dl1To = "DL 1 Valid to is required"; hasError = true; }
+  }
+
+  if (fieldConfig["Retail Lic.1"]?.show && !form.retNA) {
+    if (!(form.retLic1 || "").trim()) { newErrors.retLic1 = "Retail Lic.1 is required"; hasError = true; }
+    if (!form.retLic1From) { newErrors.retLic1From = "Retail Lic.1 Valid From is required"; hasError = true; }
+    if (!form.retLic1To) { newErrors.retLic1To = "Retail Lic.1 Valid to is required"; hasError = true; }
+  }
+
+  if (fieldConfig["Birthday"]?.show && !form.dobNA && !form.dob) {
+  newErrors.dob = "Birth Date is required";
+  hasError = true;
+  } else {
+    newErrors.dob = "";
+  }
+
+  if (fieldConfig["Anniversary"]?.show && !form.anniversaryNA && !form.anniversary) {
+    newErrors.anniversary = "Anniversary is required";
+    hasError = true;
+  } else {
+    newErrors.anniversary = "";
+  }
+
+  if ((fieldConfig["Address"]?.show || fieldConfig["Billing Address"]?.show) && !(clinics[0]?.address || "").trim()) {
+  newErrors.address = "Billing Address is required";
+  hasError = true;
+  }
+  if (fieldConfig["City"]?.show && (!clinics[0]?.cityId || clinics[0].cityId === "0")) {
+    newErrors.city = "Billing City is required";
+    hasError = true;
+  }
+  if ((fieldConfig["Zip Code"]?.show || fieldConfig["Billing Pincode"]?.show) && !String(clinics[0]?.zipCode || "").trim()) {
+    newErrors.zipCode = "Billing PIN Code is required";
+    hasError = true;
+  }
+
 
   if (form.cusType === "1") {
     const repIds = clinics.map((c) => c.repIncharge).filter((id) => id && id !== "0");
@@ -404,8 +598,11 @@ const noBranch = clinics.some((c) => !c.clinicName || c.clinicName.trim() === ""
   const contactNumErrors = {};
   let hasContactNumError = false;
   clinics.forEach((c, i) => {
-    const no = c.contactNo;
-    if (no && no.length !== 10) {
+    const no = c.contactNo || "";
+    if (!no) {
+      contactNumErrors[i] = "Contact No is required";
+      hasContactNumError = true;
+    } else if (no.length !== 10) {
       contactNumErrors[i] = "Please enter valid 10-digit Contact No";
       hasContactNumError = true;
     }
@@ -419,8 +616,8 @@ const noBranch = clinics.some((c) => !c.clinicName || c.clinicName.trim() === ""
   if (newErrors.email) setForm((f) => ({ ...f, sendEmail: "0" }));
 
   if (hasError) {
-    toastMessages.forEach((msg) => showAlert.error(msg));
-    showAlert.error("Please fix all mandatory fields");
+    // Only one toast at a time: a specific message wins over the generic one
+    showAlert.error(toastMessages[0] || "Please fix all mandatory fields");
   }
 
   return !hasError;
@@ -595,6 +792,22 @@ const onUpdateClick = () => {
       }
     }, [potentialityOptions,form.cusType]);
 
+  useEffect(() => {
+    if (currencyOptions.length === 1 && (!form.currency || form.currency === "0")) {
+      if (!decodedID || decodedID === "0") {
+        setForm(prev => ({ ...prev, currency: String(currencyOptions[0].id) }));
+      }
+    }
+  }, [currencyOptions]);
+
+  // Auto-select first option for Type (new record only)
+  useEffect(() => {
+    if (retailTypeOptions.length > 0 && (!decodedID || decodedID === "0")) {
+      setForm(prev => ({ ...prev, retailerType: String(retailTypeOptions[0].id) }));
+      setFieldErrors(prev => ({ ...prev, retailerType: "" }));
+    }
+  }, [retailTypeOptions, form.cusType]);
+
   const loadDropdowns = async () => {
     try {
       const res = await api.post("/cusTypeMas");
@@ -663,6 +876,7 @@ const onUpdateClick = () => {
     setPracticeOptions([]); setPharmaOptions([]);
     setPotentialityOptions([]);
     setRepInchargeOptions([]); setRepPOSOptions([]);
+    setPhChainDataOption([]);
     setClinics([{ ...DEFAULT_CLINIC }]);
     loadDynamicForm(val);
     fetchAccountOwner();    
@@ -693,6 +907,28 @@ const onUpdateClick = () => {
     fetchBrandData();
   }, [decodedID, isTemp]);
 
+  useEffect(()=>{
+    let fetchbrandDescribed=async()=>{
+      try{
+        const result = await api.post("/getCompmodal1", {
+          doctorId: !isTemp && decodedID > 0 ? decodedID : 0,
+          tempId: isTemp ? decodedID : 0
+        });
+        const compRaw = result.data.compmas || [];
+        const mappedPrescribed = compRaw.map(c => ({
+          subCatId: String(c.id),
+          name: c.comp_name,
+          prescribed: c.doc_comp_id ? 1 : 0,
+        }));
+        setBrandsPrescribed(mappedPrescribed);
+      }
+      catch(err){
+        console.error("compBrandData error", err);
+      }
+    }
+    fetchbrandDescribed();
+  }, [decodedID, isTemp])
+
   const handleRegionChange = async (val) => {
     // find zone_id from the selected region
     const selectedRegion = regionOptions.find(r => r.id === val);
@@ -719,6 +955,7 @@ const onUpdateClick = () => {
     setRepInchargeOptions([]);
     setRepPOSOptions([]);
     setDistributorOptions([]);
+    setPhChainDataOption([]);
 
     try {
       const [repRes, repPosRes, distRes] = await Promise.all([
@@ -737,9 +974,9 @@ const onUpdateClick = () => {
   useEffect(() => {
     loadIfNeeded({
       key: "Type",
-      state: practiceOptions,
-      setter: setPracticeOptions,
-      apiCall: "/practiceType",
+      state: retailTypeOptions,
+      setter: setRetailTypeOptions,
+      apiCall: "/getRetailtype",
     });
 
     loadIfNeeded({
@@ -811,6 +1048,49 @@ const onUpdateClick = () => {
       setter: setFrequencyOptions,
       apiCall: "/getCustomerFreq"
     });
+    
+    loadIfNeeded({
+      key: "Social Type",
+      state: socialtypeOption,
+      setter: setSocialtypeOption,
+      apiCall: "/getSocialType"
+    }); 
+    
+    loadIfNeeded({
+      key: "Common Diseases Encountered",
+      state: commonDiseaseOption,
+      setter: setCommonDiseaseOption,
+      apiCall: "/getDiseaseType"
+    })
+
+    loadIfNeeded({
+      key: "Campaign",
+      state: campaignoption,
+      setter: setCampaignOption,
+      apiCall: "/getCampaign"
+    })
+
+    loadIfNeeded({
+      key: "Customer-Payment Method",
+      state: payModeOptions,
+      setter: setPayModeOptions,
+      apiCall: "/getPayMode"
+    })
+
+    loadIfNeeded({
+      key: "Currency",
+      state: currencyOptions,
+      setter: setCurrencyOptions,
+      apiCall: "/getCurrency"
+    })
+
+    loadIfNeeded({
+      key: fieldConfig["City"]?.show ? "City" : "Shipping City",
+      state: cityOptions,
+      setter: setCityOptions,
+      apiCall: "/cityData"
+    })
+
   }, [fieldConfig]);
 
 
@@ -842,6 +1122,21 @@ const onUpdateClick = () => {
     console.log("loylaty option which passes",loyaltyTypeOptions)
 
   const handleRepChange = async (idx, repId, isPos = false) => {
+    const repField = isPos ? "repInchargePOS" : "repIncharge";
+
+    // ── block the same person being selected in more than one Contact Info ──
+    if (repId && repId !== "0") {
+      const dupIdx = clinics.findIndex(
+        (c, i) => i !== idx && String(c[repField]) === String(repId)
+      );
+      if (dupIdx !== -1) {
+        showAlert.error(
+          `${isPos ? "Account Owner (KAM)" : "Rep Incharge"} is already selected in Contact Info ${dupIdx + 1}. Please select a different one!`
+        );
+        return; // selection is not applied, so the dropdown keeps its previous value
+      }
+    }
+
     const updated = clinics.map((c, i) => {
       if (i !== idx) return c;
       return {
@@ -850,6 +1145,7 @@ const onUpdateClick = () => {
         stkId: "0",          // ← reset distributor
         beat: "",            // ← reset beat immediately (don't wait for API)
         beatOptions: [],
+        phChain: "",         // ← reset chain on rep change
       };
     });
 
@@ -858,11 +1154,27 @@ const onUpdateClick = () => {
 
     // show the reset state right away, so the UI doesn't lag behind the API call
     setClinics(updated);
+    setPhChainDataOption([]);   // ← clear stale chain options
+    setPharmacyOptions([]);     // ← clear stale pharmacy options
+
+    // nothing to load if "Select" / 0 was chosen
+    if (!repId || repId === "0") return;
 
     try {
-      const res = await api.post("/getClinicBeat", { repInchargeId: repId });
-      const opts = (Array.isArray(res.data.data.beats) ? res.data.data.beats : [])
+      const beatRes = await api.post("/getClinicBeat", { repInchargeId: repId });
+      const d = beatRes.data.data || {};
+
+      const opts = (Array.isArray(d.beats) ? d.beats : [])
         .map((i) => ({ ...i, id: String(i.id) }));
+
+      const chainOpts = (Array.isArray(d.pharmacyChains) ? d.pharmacyChains : [])
+        .map((i) => ({ ...i, id: String(i.id) }));
+
+      const pharmacyOpts = (Array.isArray(d.pharmacies) ? d.pharmacies : [])
+        .map((i) => ({ ...i, id: String(i.id) }));
+
+      setPhChainDataOption(chainOpts);
+      setPharmacyOptions(pharmacyOpts);
 
       // use functional update so we don't overwrite with a stale `updated`
       setClinics((prev) =>
@@ -911,6 +1223,25 @@ const onUpdateClick = () => {
       setFieldErrors((prev) => ({ ...prev, stkId: "" }));
     }
 };
+
+  // ── Add a new (empty) Contact Info row, up to maxClinics ──
+  //    `_key` gives each row a stable React key so accordion state doesn't
+  //    shift onto the wrong row when a middle row is removed. It is NOT part
+  //    of buildComparableSnapshot or the submit payload.
+  const addClinic = () => {
+    setClinics((prev) => {
+      if (prev.length >= maxClinics) return prev;
+      return [...prev, { ...DEFAULT_CLINIC, _key: `${Date.now()}-${prev.length}` }];
+    });
+  };
+
+  // ── Remove a Contact Info row (Contact Info 1 can never be removed) ──
+  const removeClinic = (idx) => {
+    if (idx === 0) return;
+    setClinics((prev) => prev.filter((_, i) => i !== idx));
+    // per-row contact number errors are indexed by position — reset them
+    setFieldErrors((prev) => ({ ...prev, contactNum: {} }));
+  };
 
   const toggleMeetingDay = (idx, dayValue) =>
     setClinics((prev) =>
@@ -985,6 +1316,10 @@ const onUpdateClick = () => {
       dobNA:true,
       anniversaryNA:true,
       competitorPref: "",
+      socialType: "0",
+      campaign: "0",
+      commondisease: [],
+      ...DEFAULT_BILLING
     });
     setClinics([{ ...DEFAULT_CLINIC }]);
     setBrandData([]);
@@ -1001,11 +1336,15 @@ const onUpdateClick = () => {
     setRepInchargeOptions([]);
     setRepPOSOptions([]);
     setDistributorOptions([]);
+    setPhChainDataOption([]);
     if (!decodedID || decodedID === "0") {
       setEditDataLoading(false);
       loadDynamicForm("2");
       fetchAccountOwner();    // optional but consistent with handleAccTypeChange:
       fetchRepIncharge();     //   re-baseline rep/pos lists for regId 0 + cusType "2"
+      api.post("/generatefirstcode")
+        .then((r) => setForm((prev) => ({ ...prev, cusCode: r.data?.data?.cus_code || "" })))
+        .catch((err) => console.error("generatefirstcode error", err));
       return;
     }
     setEditDataLoading(true);
@@ -1050,12 +1389,19 @@ const onUpdateClick = () => {
           keyOpinionLeader: d.kol_stat !== null && d.kol_stat !== undefined
           ? String(d.kol_stat)
           : "0",
-          adoption: String(d.adoption_id || "0"),
+          adoption: String(d.current_zone_id || "0"),
+          // tool_id can contain "0" placeholders (e.g. "0,0,0,0,0,4,8") — drop them
           marketingTools: d.tool_id
-          ? String(d.tool_id).split(",").filter(Boolean)
+          ? String(d.tool_id).split(",").filter((x) => x && x !== "0")
           : [],
           region: String(d.reg_id || "0"),
           competitorPref: d.comp_pref || "",
+          socialType: String(d.social_id || "0"),
+          campaign: String(d.campaign_id || "0"),
+          // disease_id expected as a comma-separated string (e.g. GROUP_CONCAT) from the API
+          commondisease: d.disease_id
+          ? String(d.disease_id).split(",").filter((x) => x && x !== "0")
+          : [],
           hobbies: d.hob_intersest || "",
           remarks: d.remark || "",
           agegroup: String(d.age_grp_id || "1"),
@@ -1065,11 +1411,55 @@ const onUpdateClick = () => {
           anniversaryNA: d.wedding_stat === 1,
           customerLatitude: "0",   // ← will be updated from clinic row
           customerLongitude: "0",   // ← will be updated from clinic row
+          cusCode: d.cus_code || "",
+          amtCode: d.amt_cus_code || "",
+          pisplCode: d.pispl_cus_code || "",
+          instagram: d.instagram_id || "",
+          crLimit: d.cr_limit !== null && d.cr_limit !== undefined && d.cr_limit !== "" ? Number(d.cr_limit).toFixed(2) : "",
+          payTerms: d.pay_terms !== null && d.pay_terms !== undefined ? String(d.pay_terms) : "",
+          payMode: String(d.pay_mode_id || "0"),
+          currency: String(d.currency_id || "0"),
+          advStat: String(d.adv_stat || "0"),
+          gstStat: Number(d.gst_stat) === 1,
+          gstNo: d.gst_no || "",
+          panNo: d.pan_no || "",
+          msmeNo: d.msme_reg_no || "",
+          drRegNo: d.dr_reg_no || "",
+          dlNA: d.dl_stat === 1,
+          dl1: d.dl_no_1 || "",
+          dl1From: d.dl_no_1_valid_from?.split("T")[0] || "",
+          dl1To: d.dl_no_1_valid_to?.split("T")[0] || "",
+          dl2: d.dl_no_2 || "",
+          dl2From: d.dl_no_2_valid_from?.split("T")[0] || "",
+          dl2To: d.dl_no_2_valid_to?.split("T")[0] || "",
+          retNA: d.ret_lic_stat === 1,
+          retLic1: d.ret_lic_1_no || "",
+          retLic1From: d.ret_lic_1_valid_from?.split("T")[0] || "",
+          retLic1To: d.ret_lic_1_valid_to?.split("T")[0] || "",
+          retLic2: d.ret_lic_2_no || "",
+          retLic2From: d.ret_lic_2_valid_from?.split("T")[0] || "",
+          retLic2To: d.ret_lic_2_valid_to?.split("T")[0] || "",
         };
         setForm(loadedForm);
 
         setDelFlag(d.del_flag ?? 0);
         await checkPendingRequest();
+
+        let loadedPrescribed = [];
+        try {
+          const prescRes = await api.post("/getCompmodal1", {
+            doctorId: !isTemp && decodedID > 0 ? decodedID : 0,
+            tempId: isTemp ? decodedID : 0
+          });
+          loadedPrescribed = (prescRes.data.compmas || []).map(c => ({
+            subCatId: String(c.id),
+            name: c.comp_name,
+            prescribed: c.doc_comp_id ? 1 : 0,
+          }));
+          setBrandsPrescribed(loadedPrescribed);
+        } catch (err) {
+          console.error("prescribed load error", err);
+        }
 
         // ── 5. Load all dependent dropdowns in parallel
         let loadedBrandData = [];
@@ -1173,15 +1563,23 @@ const onUpdateClick = () => {
           const firstClinic = clinicRows[0];
           const lat = firstClinic.gps_lat || "0";
           const long = firstClinic.gps_long || "0";
+          console.log("first clinic Data",firstClinic)
 
-          // ── update form with lat/long
-          setForm(prev => ({
-            ...prev,
-            customerLatitude: String(lat),
-            customerLongitude: String(long),
-          }));
+          // ── update form with lat/long, and potentiality / loyalty / frequency (cus_det)
           loadedForm.customerLatitude = String(lat);
           loadedForm.customerLongitude = String(long);
+          loadedForm.potentiality = String(firstClinic.p_class_id || "1");
+          loadedForm.loyalty = String(firstClinic.l_class_id || "");
+          loadedForm.frequency = String(firstClinic.cus_visit_freq || "");
+
+          setForm(prev => ({
+            ...prev,
+            customerLatitude: loadedForm.customerLatitude,
+            customerLongitude: loadedForm.customerLongitude,
+            potentiality: loadedForm.potentiality,
+            loyalty: loadedForm.loyalty,
+            frequency: loadedForm.frequency
+          }));
 
           // Replace the existing if block with this:
           const hasLocation = lat && long && String(lat) !== "0" && String(long) !== "0";
@@ -1193,18 +1591,30 @@ const onUpdateClick = () => {
               longitude: String(long),
             });
           }
+
           // ── 8. Load beat options for each clinic row in parallel
           const clinicsWithBeats = await Promise.all(
-            clinicRows.map(async (c) => {
+            clinicRows.map(async (c, idx) => {
               let beatOptions = [];
               if (c.user_id) {
                 try {
                   const beatRes = await api.post("/getClinicBeat", { repInchargeId: c.user_id });
+                  const bd = beatRes.data.data || {};
                   beatOptions = (
-                    Array.isArray(beatRes.data.data?.beats)
-                      ? beatRes.data.data.beats
+                    Array.isArray(bd.beats)
+                      ? bd.beats
                       : []
                   ).map(i => ({ ...i, id: String(i.id) }));
+                  if (idx === 0) {
+                    setPhChainDataOption(
+                      (Array.isArray(bd.pharmacyChains) ? bd.pharmacyChains : [])
+                        .map(i => ({ ...i, id: String(i.id) }))
+                    );
+                    setPharmacyOptions(
+                      (Array.isArray(bd.pharmacies) ? bd.pharmacies : [])
+                        .map(i => ({ ...i, id: String(i.id) }))
+                    );
+                  }
                 } catch (e) {
                   console.error("beat load error", e);
                 }
@@ -1212,6 +1622,8 @@ const onUpdateClick = () => {
 
               return {
                 ...DEFAULT_CLINIC,
+                // stable React key for each saved row (see addClinic / removeClinic)
+                _key: `saved-${c.id || idx}`,
                 clinicId: c.id || 0,
                 repIncharge: String(c.user_id || "0"),
                 repInchargePOS: String(c.user_id || "0"),
@@ -1219,10 +1631,21 @@ const onUpdateClick = () => {
                 beatOptions,
                 clinicName: c.clinic_name || "",
                 contactName: c.cont_person || "",
-                contactNo: c.clinic_phone || "",
-                address: c.clinic_addr || "",
-                city: c.city || "",
-                zipCode: String(c.zip_code || ""),
+                // cus_det.contact_no (falls back to clinic_phone if the API still aliases it)
+                contactNo: c.contact_no || c.clinic_phone || "",
+                contactNo2: c.contact_no1 || "",
+                potentiality: String(c.p_class_id || "1"),
+                loyalty: String(c.l_class_id || ""),
+                frequency: String(c.cus_visit_freq || ""),
+                address: c.bill_address || "",
+                city: c.bill_city || "",
+                cityId: String(c.bill_city_id || "0"),
+                zipCode: String(c.bill_pincode || ""),
+                shipStat: Number(c.ship_stat) === 1,
+                shipAddress: c.ship_address || "",
+                shipCity: c.ship_city || "",
+                shipCityId: String(c.ship_city_id || "0"),
+                shipPincode: String(c.ship_pincode || ""),
                 stkId: String(c.stk_id || "0"),
                 phChain: String(c.chain_id || "0"),
                 hospitalAttached: String(c.hospital_id || "0"),
@@ -1232,6 +1655,12 @@ const onUpdateClick = () => {
                 meetingDays: c.visit_day
                   ? c.visit_day.split(",").filter(Boolean)
                   : [],
+                clinicPhoto: c.clinic_photo || "",
+                clinicPhotoName: c.clinic_photo_name || "",
+                letterHead: c.letter_head_photo || "",
+                letterHeadName: c.letter_head_photo_name || "",
+                gstBoard: c.gst_board || "",
+                gstBoardName: c.gst_board_name || "",
               };
             })
           );
@@ -1244,13 +1673,14 @@ const onUpdateClick = () => {
               loadedForm,
               clinicsWithBeats,
               loadedBrandData,
-              loadedCompetitorRows
+              loadedCompetitorRows,
+              loadedPrescribed
             )
           );
         } else {
           setClinics([{ ...DEFAULT_CLINIC }]);
           setOriginalSnapshot(
-            buildComparableSnapshot(loadedForm, [{ ...DEFAULT_CLINIC }], loadedBrandData, loadedCompetitorRows)
+            buildComparableSnapshot(loadedForm, [{ ...DEFAULT_CLINIC }], loadedBrandData, loadedCompetitorRows, loadedPrescribed)
           );
         }
 
@@ -1277,6 +1707,8 @@ const onUpdateClick = () => {
     setMapDialogOpen(true);
   };
  console.log("acc_sta",accStat)
+ console.log("brand prescribed in competitor",brandsPrescribed)
+ 
   // ---------------- UI ----------------
   return (
     <Layout
@@ -1365,7 +1797,8 @@ const onUpdateClick = () => {
       <Divider sx={{ mt: -1.5 }} />
         <Grid container spacing={2} alignItems="center">
           {/* Account Type */}
-          <Grid size={{ xs: 12, md: 3, lg: 3 }}>
+          {fieldConfig["Customer Type"]?.show && (
+          <Grid size={{ xs: 12, md: 3, lg: 2 }}>
             <CommonAppSelect
               label={fieldConfig["Customer Type"]?.label || "Type"}
               value={form.cusType}
@@ -1384,6 +1817,56 @@ const onUpdateClick = () => {
               helperText={fieldErrors.cusType}
             />
           </Grid>
+           )}
+          {/* Customer Code */}
+          {fieldConfig["Code"]?.show && (
+            <Grid size={{ xs: 12, md: 3, lg: 2.3 }}>
+              <TextField
+                label={fieldConfig["Code"]?.label || "Customer Code"}
+                fullWidth
+                size="small"
+                sx={{height:'3rem',"& .MuiInputBase-root":{
+                  backgroundColor: "#EEEEEE",
+                }}}
+                value={form.cusCode || ""}
+                inputProps={{ readOnly: true }}
+              />
+            </Grid>
+          )}
+
+          {/* AMT Code */}
+          {fieldConfig["AMT Code"]?.show && (
+            <Grid size={{ xs: 12, md: 3, lg: 2.3 }}>
+              <TextField
+                label={fieldConfig["AMT Code"]?.label || "AMT Code"}
+                fullWidth
+                size="small"
+                sx={{height:'3rem'}}
+                value={form.amtCode || ""}
+                onChange={(e) => {
+                  const onlyText = e.target.value.replace(/^\s+/, "")
+                  setForm({ ...form, amtCode: onlyText })
+                }}
+              />
+            </Grid>
+          )}
+
+          {/* PISPL Code */}
+          {fieldConfig["PISPL Code"]?.show && (
+            <Grid size={{ xs: 12, md: 3, lg: 2.4 }}>
+              <TextField
+                label={fieldConfig["PISPL Code"]?.label || "PISPL Code"}
+                fullWidth
+                size="small"
+                sx={{height:'3rem'}}
+                value={form.pisplCode || ""}
+                onChange={(e) => {
+                  const onlyText = e.target.value.replace(/^\s+/, "")
+                  setForm({ ...form, pisplCode: onlyText })
+                }}
+              />
+            </Grid>
+          )}
 
           {/* Type */}
           {fieldConfig["Type"]?.show && (
@@ -1395,14 +1878,9 @@ const onUpdateClick = () => {
                   setForm({ ...form, retailerType: String(e.target.value) })
                   setFieldErrors((prev) => ({ ...prev, retailerType: "" }));
                 }}
-                options={[
-                  { id: "1", name: "Retailer" },
-                  { id: "2", name: "HO" },
-                  { id: "3", name: "Hospital" },
-                  { id: "4", name: "Institution" },
-                ]}
+                options={retailTypeOptions}
                 valueKey="id"
-                labelKey="name"
+                labelKey="retail_type"
                 required={true}
                 error={!!fieldErrors.retailerType}
                 helperText={fieldErrors.retailerType}
@@ -1458,6 +1936,20 @@ const onUpdateClick = () => {
               />
             </Grid>
            )}
+           {fieldConfig["Gender"]?.show && !isHcpField && (
+            <Grid size={{ xs: 12, md: 3, lg: 3 }}>
+              <CommonAppSelect
+                label={fieldConfig["Gender"]?.label || "Gender"}
+                value={form.gender}
+                onChange={(e) =>
+                  setForm({ ...form, gender: String(e.target.value) })
+                }
+                options={genderOptions}
+                valueKey="id"
+                labelKey="gender_name"
+              />
+            </Grid>
+          )}
           </Grid>
           {isHcpField && <Grid container spacing={2} alignItems="center">
           {/* First Name */}
@@ -1496,7 +1988,7 @@ const onUpdateClick = () => {
             </Grid>
           )}
           {/* Gender */}
-          {fieldConfig["Gender"]?.show && isHcpField && (
+          {fieldConfig["Gender"]?.show && (
             <Grid size={{ xs: 12, md: 3, lg: 3 }}>
               <CommonAppSelect
                 label={fieldConfig["Gender"]?.label || "Gender"}
@@ -1600,77 +2092,8 @@ const onUpdateClick = () => {
           )}
           </Grid>
           <Grid container spacing={2} alignItems="center">
-          {/* Potentiality Class */}
-          {fieldConfig["Potentiality Class"]?.show && (
-            <Grid size={{ xs: 12, md: 3 }}>
-              <CommonAppSelect
-                label={fieldConfig["Potentiality Class"]?.label || "Potentiality Class"}
-                value={form.potentiality || ""}
-                onChange={(e) => {
-                  setForm({ ...form, potentiality: String(e.target.value) })
-                  setFieldErrors((prev) => ({ ...prev, potentiality: "" }));
-                }}
-                options={potentialityOptions}
-                valueKey="id"
-                labelKey="cat_type"
-                required={true}
-                error={!!fieldErrors.potentiality}
-                helperText={fieldErrors.potentiality}
-              />
-            </Grid>
-          )}
-
-          {/* Key Opinion Leader – hcpDiv2 */}
-          {fieldConfig["Key Opinion Leader"]?.show && isHcpField && (
-            <Grid size={{ xs: 12, md: 3 }}>
-              <CommonAppSelect
-                label={fieldConfig["Key Opinion Leader"].label || "Key Opinion Leader"}
-                value={form.keyOpinionLeader || "0"}
-                onChange={(e) =>
-                  setForm({ ...form, keyOpinionLeader: String(e.target.value) })
-                }
-                options={[
-                  { id: "0", name: "Yes" },
-                  { id: "1", name: "No" },
-                ]}
-                valueKey="id"
-                labelKey="name"
-              />
-            </Grid>
-          )}
-
-          {/* Loyalty Class */}
-          {fieldConfig["Loyalty Class"]?.show && (
-            <Grid size={{ xs: 12, md: 3 }}>
-              <CommonAppSelect
-                label={fieldConfig["Loyalty Class"].label || "Loyalty Class"}
-                value={form.loyalty || ""}
-                onChange={(e) =>
-                  setForm({ ...form, loyalty: String(e.target.value) })
-                }
-                options={potentialityOptions}
-                valueKey="id"
-                labelKey="cat_type"
-              />
-            </Grid>
-          )}
-
-          {/* Visit Frequency / Year */}
-          {fieldConfig["Visit Frequency/Year"]?.show && (
-            <Grid size={{ xs: 12, md: 3 }}>
-              <CommonAppSelect
-                label={fieldConfig["Visit Frequency/Year"]?.label || "Visit Frequency / Year"}
-                value={form.frequency || ""}
-                onChange={(e) =>
-                  setForm({ ...form, frequency: String(e.target.value) })
-                }
-                options={frequencyOptions}
-                valueKey="no_freq_visit"
-                labelKey="freq_name"
-                required={true}
-              />
-            </Grid>
-          )}
+          {/* Potentiality Class, Loyalty Class and Visit Frequency/Year (cus_det)
+              now live in ContactInfo — removed from here. */}
 
            {/* Region */}
           {fieldConfig["Region"]?.show && !isHcpField && (
@@ -1692,6 +2115,39 @@ const onUpdateClick = () => {
             </Grid>
           )}
 
+            {fieldConfig["Loyalty Type"]?.show && !isHcpField && (
+            <Grid size={{ xs: 12, md: 3 }}>
+              <CommonAppSelect
+                label={fieldConfig["Loyalty Type"]?.label || "Loyalty Type"}
+                value={form.loyaltyType}
+                onChange={(e) =>
+                  setForm({ ...form, loyaltyType: String(e.target.value) })
+                }
+                options={loyaltyTypeOptions}
+                valueKey="id"
+                labelKey="loyalty_type"
+              />
+            </Grid>
+          )}
+
+          {/* Instagram Handle */}
+          {fieldConfig["Instagram Handle"]?.show && !isHcpField && (
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                label={fieldConfig["Instagram Handle"]?.label || "Instagram Handle"}
+                fullWidth
+                size="small"
+                placeholder="Enter Instagram Id"
+                sx={{height:'3rem'}}
+                value={form.instagram || ""}
+                onChange={(e) => {
+                  const onlyText = e.target.value.replace(/^\s+/, "")
+                  setForm({ ...form, instagram: onlyText })
+                }}
+              />
+            </Grid>
+          )}
+
         
           {/* Remarks */}
           {fieldConfig["Remarks"]?.show && !isHcpField && (
@@ -1710,7 +2166,7 @@ const onUpdateClick = () => {
           </Grid>
 
           <Grid container spacing={2} alignItems="center">
-          {fieldConfig["Loyalty Type"]?.show && (
+          {fieldConfig["Loyalty Type"]?.show && isHcpField && (
             <Grid size={{ xs: 12, md: 3 }}>
               <CommonAppSelect
                 label={fieldConfig["Loyalty Type"]?.label || "Loyalty Type"}
@@ -1724,6 +2180,26 @@ const onUpdateClick = () => {
               />
             </Grid>
           )}
+
+             {/* Key Opinion Leader – hcpDiv2 */}
+          {fieldConfig["Key Opinion Leader"]?.show && (
+            <Grid size={{ xs: 12, md: 3 }}>
+              <CommonAppSelect
+                label={fieldConfig["Key Opinion Leader"].label || "Key Opinion Leader"}
+                value={form.keyOpinionLeader || "0"}
+                onChange={(e) =>
+                  setForm({ ...form, keyOpinionLeader: String(e.target.value) })
+                }
+                options={[
+                  { id: "0", name: "Yes" },
+                  { id: "1", name: "No" },
+                ]}
+                valueKey="id"
+                labelKey="name"
+              />
+            </Grid>
+          )}
+
 
           {/* Adoption / Current Zone – hcpDiv2 */}
           {fieldConfig["Adoption/Current Zone"]?.show && isHcpField && (
@@ -1761,6 +2237,24 @@ const onUpdateClick = () => {
             </Grid>
           )}
 
+          {/* Instagram Handle */}
+          {fieldConfig["Instagram Handle"]?.show && isHcpField && (
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                label={fieldConfig["Instagram Handle"]?.label || "Instagram Handle"}
+                fullWidth
+                size="small"
+                placeholder="Enter Instagram Id"
+                sx={{height:'3rem'}}
+                value={form.instagram || ""}
+                onChange={(e) => {
+                  const onlyText = e.target.value.replace(/^\s+/, "")
+                  setForm({ ...form, instagram: onlyText })
+                }}
+              />
+            </Grid>
+          )}
+
           {/* Remarks */}
           {fieldConfig["Remarks"]?.show && isHcpField && (
             <Grid size={{ xs: 12, md: 3 }}>
@@ -1775,6 +2269,7 @@ const onUpdateClick = () => {
               />
             </Grid>
           )}
+
           </Grid>
         {/*------------ SecondaryInfo------------------------ */}
         <Typography variant="h6" color="initial" sx={subHeaderStyle}>Secondary Info</Typography>
@@ -1785,23 +2280,41 @@ const onUpdateClick = () => {
           setForm={setForm}
           isHcpField={isHcpField}
           ageOptions={ageOptions}
-          marketingOptions={marketingOptions} />
+          socialtypeOption={socialtypeOption}
+          commonDiseaseOption={commonDiseaseOption}
+          campaignoption={campaignoption}
+          marketingOptions={marketingOptions}
+          fieldErrors={fieldErrors}
+          setFieldErrors={setFieldErrors} />
 
         
          </Box>
        {/*------------  Competitor Mapping ------------------------ */}
-       {form.cusType === "1" &&
-       <CompetitorMappping
-            brandData={brandData}
-            setBrandData={setBrandData}
-            cusId={decodedID || 0}   
-            tempId={0}     
-            competitorRows={competitorRows}         
-            onOpenCompModal={(brand) => {
-              setSelectedBrand(brand);   // track which brand was clicked
+      {fieldConfig["Competitor Mapping"]?.show &&
+      <CompetitorMappping
+          brandData={brandData}
+          setBrandData={setBrandData}
+          cusId={decodedID || 0}
+          tempId={0}
+          competitorRows={competitorRows}
+          brandsPrescribed={brandsPrescribed}
+          setBrandsPrescribed={setBrandsPrescribed}
+          onOpenCompModal={(brand) => {
+              setSelectedBrand(brand);
               setCompModalOpen(true);
-            }}
-          />}
+          }}
+      />}
+
+      {/*------------ billing info ------------------------ */}
+      <BillingInfo
+        fieldConfig={fieldConfig}
+        form={form}
+        setForm={setForm}
+        payModeOptions={payModeOptions}
+        currencyOptions={currencyOptions}
+        fieldErrors={fieldErrors}
+        setFieldErrors={setFieldErrors}
+      />
       {/*------------ contact info ------------------------ */}
       <ContactInfo
         fieldConfig={fieldConfig}
@@ -1810,6 +2323,9 @@ const onUpdateClick = () => {
         isHcp={isHcpField}
         isRetailer={isRetailerField}
         clinics={clinics}
+        onAddClinic={addClinic}
+        onRemoveClinic={removeClinic}
+        maxClinics={maxClinics}
         handleRepChange={handleRepChange}
         updateClinic={updateClinic}
         toggleMeetingDay={toggleMeetingDay}
@@ -1818,7 +2334,13 @@ const onUpdateClick = () => {
         pharmacyOptions={pharmacyOptions}
         hospitalOptions={hospitalOptions}
         distributorOptions={distributorOptions}
+        phChainOptions={phChainDataOption}
+        cityOptions={cityOptions}
+        masterPanel={masterPanel}
+        potentialityOptions={potentialityOptions}
+        frequencyOptions={frequencyOptions}
         fieldErrors={fieldErrors}
+        setFieldErrors={setFieldErrors}
         handleClinicContactNoChange={handleClinicContactNoChange}
         handleClinicContactNoBlur={handleClinicContactNoBlur}
       />

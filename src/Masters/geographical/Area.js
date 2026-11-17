@@ -138,7 +138,7 @@ export default function Area() {
 
         if (!areaName || areaName.trim() === "") {
             setAreaError(true)
-            setAreaErrorMsg(`The ${areaLabel} Name field is required.`)
+            setAreaErrorMsg(`The ${areaLabel}  field is required.`)
             isValid = false
         } else if (/[^a-zA-Z0-9_\-\/ ]/.test(areaName)) {
             setAreaError(true)
@@ -317,7 +317,7 @@ export default function Area() {
                                         size="small"
                                         error={regionError}
                                         required
-                                        helperText={regionError ? `The ${regionLabel} Name field is required.` : ""}
+                                        helperText={regionError ? `The ${regionLabel} field is required.` : ""}
                                     />
                                 )}
                             />

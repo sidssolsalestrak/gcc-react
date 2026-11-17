@@ -493,7 +493,7 @@ export default function WebMenuMaster() {
     }
     const checkedIds = Object.keys(checked).filter((k) => checked[k]);
     if (checkedIds.length === 0) {
-      toast.error("Please select at least one menu!");
+      toast.error("Please select atleast one menu!");
       isValid = false;
     }
     return isValid;

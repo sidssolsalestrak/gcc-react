@@ -130,13 +130,13 @@ export default function Region() {
 
         if (Number(selectedZone) === 0) {
             setZoneError(true)
-            setZoneErrMsg(`${zoneLabel} name is required`)
+            setZoneErrMsg(`The ${zoneLabel} field is required`)
             isValid = false
         }
 
         if (!regionName || regionName.trim() === "") {
             setRegionError(true)
-            setRegionErrMsg(`The ${regLabel} Name field is required`)
+            setRegionErrMsg(`The ${regLabel}  field is required`)
             isValid = false
         } else if (regionName.trim().length < 3) {
             setRegionError(true)

@@ -14,18 +14,6 @@ import { MdOutlineEdit } from "react-icons/md";
 import { getMasterPanel } from "../../services/masterPanelService";
 import usePageTitle from '../../services/usePageTitle'
 
-const TYPE_OPTIONS = [
-    { id: "0", label: "All" },
-    { id: "8", label: "Med.Rep" },
-    { id: "9", label: "KAM" },
-    { id: "10", label: "Merchandiser" },
-]
-
-const getTypeLabel = (type) => {
-    const found = TYPE_OPTIONS.find((t) => String(t.id) === String(type))
-    return found ? found.label : "-"
-}
-
 export default function Objective() {
 
     const { editObjId } = useParams()
@@ -41,6 +29,7 @@ export default function Objective() {
     const [hdnObjName, setHdnObjName] = useState("")
 
     const [allObjData, setAllObjData] = useState([])
+    const [typeOptions, setTypeOptions] = useState([{ id: "0", label: "All" }])
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [accStat, setAccStat] = useState(null)
@@ -67,6 +56,7 @@ export default function Objective() {
     }, []);
 
     useEffect(() => {
+        fetchFieldUser()
         fetchAllObjective()
     }, [])
 
@@ -94,14 +84,29 @@ export default function Objective() {
         }
     }
 
+    const fetchFieldUser = async () => {
+        try {
+            let response = await api.post("/fieldUsers")
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setTypeOptions([
+                { id: "0", label: "All" },
+                ...data.map((item) => ({
+                    id: String(item.id),
+                    label: item.client_alias || ""
+                }))
+            ])
+        } catch (err) {
+            console.log("fetch field user Err", err)
+        }
+    }
+
     const fetchAllObjective = async () => {
         try {
             let response = await api.post("/readObjective", { obj_id: null })
             let data = Array.isArray(response.data.data) ? response.data.data : []
             setAllObjData(data.map((item, index) => ({
                 ...item,
-                si_no: index + 1,
-                type_name: getTypeLabel(item.user_type)
+                si_no: index + 1
             })))
             storeAccStat(response)
         } catch (err) {
@@ -133,7 +138,7 @@ export default function Objective() {
         setTypeError(false)
         setObjError(false); setObjErrorMsg("")
 
-        if (!TYPE_OPTIONS.some((t) => t.id === String(selType))) {
+        if (!typeOptions.some((t) => t.id === String(selType))) {
             setTypeError(true)
             isValid = false
         }
@@ -244,6 +249,11 @@ export default function Objective() {
         String(hdnSelType) === String(selType) &&
         hdnObjName.toLowerCase().trim() === objName.toLowerCase().trim()
 
+    const tableData = allObjData.map((item) => ({
+        ...item,
+        type_name: typeOptions.find((t) => t.id === String(item.user_type))?.label || "-"
+    }))
+
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
         { field: "type_name", headerName: "Type", filterable: true, sortable: true },
@@ -297,9 +307,9 @@ export default function Objective() {
                     {tabValue === 0 && (
                         <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, width: '90%' }}>
                             <Autocomplete
-                                options={TYPE_OPTIONS}
+                                options={typeOptions}
                                 getOptionLabel={(option) => option.label || ""}
-                                value={TYPE_OPTIONS.find((t) => t.id === String(selType)) || null}
+                                value={typeOptions.find((t) => t.id === String(selType)) || null}
                                 onChange={(e, newVal) => {
                                     setSelType(newVal ? newVal.id : "0")
                                     if (typeError) setTypeError(false)
@@ -355,7 +365,7 @@ export default function Objective() {
 
                     {tabValue === 1 && (
                         <Box sx={{ p: 0 }}>
-                            <DataTable columns={columns} data={allObjData} loading={loading} />
+                            <DataTable columns={columns} data={tableData} loading={loading} />
                         </Box>
                     )}
                 </Box>

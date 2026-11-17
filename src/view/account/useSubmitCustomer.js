@@ -12,13 +12,21 @@ const validateMobile = (mobile) => {
   return mobile && mobile.length === 10;
 };
 
-export function useSubmitCustomer({ form, clinics, brandData = [], competitorBrands = [], competitorRows = [], setFieldErrors, setForm }) {
+const FILE_UPLOADS = [
+  { key: "clinicPhoto", field: "clinic_photo" },
+  { key: "letterHead", field: "letter_head_photo" },
+  { key: "gstBoard", field: "gst_board" },
+];
+
+const isFile = (v) => typeof File !== "undefined" && v instanceof File;
+
+export function useSubmitCustomer({ form, clinics, brandData = [], competitorBrands = [], competitorRows = [], brandsPrescribed = [], setFieldErrors, setForm, fieldConfig = {} }) {
   const toast = useToast();
   console.log("form which is Passes to submit",form)
   console.log("clinics which is pass to submit",clinics)
   console.log("potentiality which is pass to submit",brandData)
   console.log("competitor brands passing",competitorBrands)
-  // ── Shared validation & payload builder ──────────────────────────────────
+
   const validateAndBuild = () => {
     const newErrors = {};
     const toastMessages = [];
@@ -37,26 +45,21 @@ export function useSubmitCustomer({ form, clinics, brandData = [], competitorBra
       hasError=true
     }
 
-
-    // ── 1. FIRST NAME ─────────────────────────────────────────────────────
     if (!form.firstName || !form.firstName.trim()) {
       newErrors.firstName = "Store Name is required";
       hasError = true;
     }
 
-    // ── 2. REGION ─────────────────────────────────────────────────────────
     if (!form.region || form.region === "0" || form.region === "") {
       newErrors.region = "Region is required";
       hasError = true;
     }
 
-    // ── 3. DISTRIBUTOR ────────────────────────────────────────────────────
     if (!clinics[0]?.stkId || clinics[0].stkId === "0") {
       newErrors.stkId = "Distributor is required";
       hasError = true;
     }
 
-   // ── 4. MOBILE ─────────────────────────────────────────────────────────
     if (form.sendSms === "1" && (!form.mobile || !form.mobile.trim())) {
       newErrors.mobile = "Mobile No is required";
       hasError = true;
@@ -67,7 +70,6 @@ export function useSubmitCustomer({ form, clinics, brandData = [], competitorBra
       newErrors.mobile = "";
     }
 
-    // ── 5. EMAIL ──────────────────────────────────────────────────────────
     if (form.sendEmail === "1" && (!form.email || !form.email.trim())) {
       newErrors.email = "Email is required";
       hasError = true;
@@ -78,16 +80,86 @@ export function useSubmitCustomer({ form, clinics, brandData = [], competitorBra
       newErrors.email = "";
     }
 
-    // ── 5b. LOCATION ─────────────────────────────────────────────────────
     const lat = Number(form.customerLatitude);
     const lng = Number(form.customerLongitude);
     if (!form.customerLatitude || !form.customerLongitude || !lat || !lng) {
-      // toastMessages.push("Please Add Location By Clicking Location Icon!!");
       newErrors.location="Please Add Location By Clicking Location Icon!!"
       hasError = true;
     }
 
-    // ── 6. DUPLICATE REP VALIDATION ───────────────────────────────────────
+    if (fieldConfig["Currency"]?.show && (!form.currency || form.currency === "0")) {
+      newErrors.currency = "Currency is required";
+      hasError = true;
+    }
+    if (fieldConfig["Customer-GST No"]?.show && form.gstStat && !(form.gstNo || "").trim()) {
+      newErrors.gstNo = "Customer GST No is required";
+      hasError = true;
+    }
+    if (fieldConfig["Medical Reg. No"]?.show && !(form.drRegNo || "").trim()) {
+      newErrors.drRegNo = "Medical Reg. No is required";
+      hasError = true;
+    }
+    if (fieldConfig["Billing Address"]?.show && !(clinics[0]?.address || "").trim()) {
+      newErrors.address = "Billing Address is required";
+      hasError = true;
+    }
+    if (fieldConfig["City"]?.show && (!clinics[0]?.cityId || clinics[0].cityId === "0")) {
+      newErrors.city = "Billing City is required";
+      hasError = true;
+    }
+    if (fieldConfig["Billing Pincode"]?.show && !String(clinics[0]?.zipCode || "").trim()) {
+      newErrors.zipCode = "Billing PIN Code is required";
+      hasError = true;
+    }
+    if (fieldConfig["Shipping Address"]?.show && !(clinics[0]?.shipAddress || "").trim()) {
+      newErrors.shipAddress = "Shipping Address is required";
+      hasError = true;
+    }
+    if (fieldConfig["Shipping City"]?.show && !(clinics[0]?.shipCity || "").trim()) {
+      newErrors.shipCity = "Shipping City is required";
+      hasError = true;
+    }
+    if (fieldConfig["Shipping Pincode"]?.show && !(clinics[0]?.shipPincode || "").trim()) {
+      newErrors.shipPincode = "Shipping Pincode is required";
+      hasError = true;
+    }
+    if (fieldConfig["DL.1"]?.show && !form.dlNA) {
+      if (!(form.dl1 || "").trim()) { newErrors.dl1 = "DL 1 is required"; hasError = true; }
+      if (!form.dl1From) { newErrors.dl1From = "DL 1 Valid From is required"; hasError = true; }
+      if (!form.dl1To) { newErrors.dl1To = "DL 1 Valid to is required"; hasError = true; }
+    }
+    if (fieldConfig["Retail Lic.1"]?.show && !form.retNA) {
+      if (!(form.retLic1 || "").trim()) { newErrors.retLic1 = "Retail Lic.1 is required"; hasError = true; }
+      if (!form.retLic1From) { newErrors.retLic1From = "Retail Lic.1 Valid From is required"; hasError = true; }
+      if (!form.retLic1To) { newErrors.retLic1To = "Retail Lic.1 Valid to is required"; hasError = true; }
+    }
+    if (fieldConfig["Birthday"]?.show && !form.dobNA && !form.dob) {
+      newErrors.dob = "Birth Date is required";
+      hasError = true;
+    } else {
+      newErrors.dob = "";
+    }
+
+    if (fieldConfig["Anniversary"]?.show && !form.anniversaryNA && !form.anniversary) {
+      newErrors.anniversary = "Anniversary is required";
+      hasError = true;
+    } else {
+      newErrors.anniversary = "";
+    }
+
+    if ((fieldConfig["Address"]?.show || fieldConfig["Billing Address"]?.show) && !(clinics[0]?.address || "").trim()) {
+      newErrors.address = "Billing Address is required";
+      hasError = true;
+    }
+    if (fieldConfig["City"]?.show && (!clinics[0]?.cityId || clinics[0].cityId === "0")) {
+      newErrors.city = "Billing City is required";
+      hasError = true;
+    }
+    if ((fieldConfig["Zip Code"]?.show || fieldConfig["Billing Pincode"]?.show) && !String(clinics[0]?.zipCode || "").trim()) {
+      newErrors.zipCode = "Billing PIN Code is required";
+      hasError = true;
+    }
+
     if (form.cusType === "1") {
       const repIds = clinics.map(c => c.repIncharge).filter(id => id && id !== "0");
       if (repIds.length !== new Set(repIds).size) {
@@ -104,22 +176,11 @@ export function useSubmitCustomer({ form, clinics, brandData = [], competitorBra
       }
     }
 
-    // ── 7. FILTER CLINICS ─────────────────────────────────────────────────
     const filteredClinics = clinics.filter(c =>
       form.cusType === "1"
         ? c.repIncharge && c.repIncharge !== "0"
         : c.repInchargePOS && c.repInchargePOS !== "0"
     );
-
-    // ── 8. CLINIC COUNT VALIDATION ────────────────────────────────────────
-    // if (filteredClinics.length === 0) {
-    //   toastMessages.push(
-    //     form.cusType === "2"
-    //       ? "Please select Branch Details"
-    //       : "Please select atleast one clinical details"
-    //   );
-    //   hasError = true;
-    // }
 
     const noAccountOwner = clinics.some(c =>
   form.cusType === "2"
@@ -133,7 +194,6 @@ if (noAccountOwner) {
   hasError = true;
 }
 
-    // ── 9. BEAT VALIDATION ────────────────────────────────────────────────
     const noBeat = filteredClinics.some(c => !c.beat || c.beat === "0");
     if (noBeat) {
       newErrors.beat="Beat is Required";
@@ -145,13 +205,14 @@ if (noAccountOwner) {
       hasError = true;
     }
 
-    // ── 10. CLINIC CONTACT NO VALIDATION ──────────────────────────────────
-    // Indexed by clinic position so each accordion only shows its own error.
     const contactNumErrors = {};
     let hasContactNumError = false;
     clinics.forEach((c, i) => {
-      const no = c.contactNo;
-      if (no && no.length !== 10) {
+      const no = c.contactNo || "";
+      if (!no) {
+        contactNumErrors[i] = "Contact No is required";
+        hasContactNumError = true;
+      } else if (no.length !== 10) {
         contactNumErrors[i] = "Please enter valid 10-digit Contact No";
         hasContactNumError = true;
       }
@@ -161,7 +222,6 @@ if (noAccountOwner) {
     }
     newErrors.contactNum = contactNumErrors;
 
-    // ── SET ALL ERRORS + SHOW ALL MESSAGES, THEN RETURN ONCE ─────────────
     setFieldErrors((prev) => ({ ...prev, ...newErrors }));
 
     if (newErrors.mobile) setForm((f) => ({ ...f, sendSms: "0" }));
@@ -173,12 +233,11 @@ if (noAccountOwner) {
       return null;
     }
 
-    // ── 11. BRANDS ─────────────────────────────────────────────────────────
     const brandSubCatID = brandData.map(b => b.subCatId);
     const brandFocus = brandData.map(b => Number(b.focus) || 0);
     const brandRemainder = brandData.map(b => Number(b.reminder) || 0);
+    const prescribedBrands = brandsPrescribed.filter(b => b.prescribed === 1).map(b => b.subCatId);
 
-    // ── 12. COMPETITOR PRODUCT ARRAYS ─────────────────────────────────────
     const competitor_subcat_id = competitorRows.map(r => r.subcat_id || 0);
     const competitor_prod_id = competitorRows.map(r => r.pid || 0);
     const competitor_prod_qty = competitorRows.map(r => r.prod_qty || 0);
@@ -191,33 +250,57 @@ if (noAccountOwner) {
     const competitor_oth = competitorRows.map(r => r.other_name || "");
     const competitor_othqty = competitorRows.map(r => r.oth_qty || 0);
 
-    // ── 13. CLINICS PAYLOAD ────────────────────────────────────────────────
-    const customerClinic = filteredClinics.map(c => ({
-      customeClinicId: c.clinicId || 0,
-      customeClinicName: c.clinicName || "",
-      customeClinicAddress: c.address || "",
-      customeClinicCity: c.city || "",
-      customeClinicZipCode: c.zipCode || 0,
-      customeClinicContactName: c.contactName || "",
-      customeClinicContactNo: c.contactNo || "",
-      customeClinicHospitalAttched: c.hospitalAttached || "0",
-      customeClinicPharmacyAttached: c.pharmacyAttached || "0",
-      customerClinicMeetingDays: c.meetingDays || [],
-      customeClinicTime: c.meetingTime || "",
-      customerClinicRepIncharge: form.cusType === "1"
-        ? (c.repIncharge || "0")
-        : (c.repInchargePOS || "0"),
-      customerClinicBeat: c.beat || "0",
-      customeStkId: c.stkId || "0",
-      phChain: c.phChain || "0",
-    }));
+    const norm = (v) => String(v ?? "").trim().toLowerCase();
 
-    // ── 14. FULL NAME ───────────────────────────────────────────────────────
+    const customerClinic = filteredClinics.map((c, i) => {
+      const sameAsBilling =
+        !!c.shipStat ||
+        (norm(c.shipAddress) !== "" &&
+          norm(c.shipAddress) === norm(c.address) &&
+          norm(c.shipCityId) === norm(c.cityId) &&
+          norm(c.shipPincode) === norm(c.zipCode));
+
+      return {
+        customeClinicId: c.clinicId || 0,
+        customeClinicName: c.clinicName || "",
+        customeClinicAddress: c.address || "",
+        customeClinicCity: c.city || "",
+        customeClinicCityId: c.cityId || 0,
+        customeClinicZipCode: c.zipCode || 0,
+        customeClinicContactName: c.contactName || "",
+        customeClinicContactNo: c.contactNo || "",
+        customeClinicHospitalAttched: c.hospitalAttached || "0",
+        customeClinicPharmacyAttached: c.pharmacyAttached || "0",
+        customerClinicMeetingDays: c.meetingDays || [],
+        customeClinicTime: c.meetingTime || "",
+        customerClinicRepIncharge: form.cusType === "1"
+          ? (c.repIncharge || "0")
+          : (c.repInchargePOS || "0"),
+        customerClinicBeat: c.beat || "0",
+        customeStkId: c.stkId || "0",
+        phChain: c.phChain || "0",
+        contact_no1: c.contactNo2 || "",
+        ship_stat: sameAsBilling ? 1 : 0,
+        ship_address: sameAsBilling ? (c.address || "") : (c.shipAddress || ""),
+        ship_city: sameAsBilling ? (c.city || "") : (c.shipCity || ""),
+        ship_city_id: sameAsBilling ? (c.cityId || 0) : (c.shipCityId || 0),
+        ship_pincode: sameAsBilling ? (c.zipCode || "") : (c.shipPincode || ""),
+        customerPotentiality: (i === 0 ? form.potentiality : c.potentiality) || "0",
+        customeLoyalty: (i === 0 ? form.loyalty : c.loyalty) || "4",
+        customerFrequency: (i === 0 ? form.frequency : c.frequency) || "0",
+        clinic_photo: typeof c.clinicPhoto === "string" ? c.clinicPhoto : "",
+        clinic_photo_removed: c.clinicPhoto === null ? 1 : 0,
+        letter_head_photo: typeof c.letterHead === "string" ? c.letterHead : "",
+        letter_head_photo_removed: c.letterHead === null ? 1 : 0,
+        gst_board: typeof c.gstBoard === "string" ? c.gstBoard : "",
+        gst_board_removed: c.gstBoard === null ? 1 : 0,
+      };
+    });
+
     const full_name = form.lastName && form.lastName.trim()
       ? `${(form.firstName || "").trim()} ${form.lastName.trim()}`
       : (form.firstName || "").trim();
 
-    // ── 15. SHARED DOCTOR DETAILS ──────────────────────────────────────────
     const doctorDetails = {
       cusType: form.cusType || "2",
       customerRetType: form.retailerType || "1",
@@ -246,6 +329,9 @@ if (noAccountOwner) {
 
       customeCompetitorPref: form.competitorPref || "",
       customeMarketingTools: Array.isArray(form.marketingTools) ? form.marketingTools : [],
+      customeSocialType: form.socialType || "0",
+      customeCommonDisease: Array.isArray(form.commondisease) ? form.commondisease : [],
+      customeCampaign: form.campaign || "0",
       hobbies: form.hobbies || "",
       customeRemarks: form.remarks || "",
 
@@ -255,6 +341,38 @@ if (noAccountOwner) {
       wedding_stat: form.anniversaryNA ? 1 : 0,
       phChain: clinics[0]?.phChain || "0",
 
+      cus_code: form.cusCode || "",
+      amt_cus_code: form.amtCode || "",
+      pispl_cus_code: form.pisplCode || "",
+      instagram_id: form.instagram || "",
+
+      cr_limit: form.crLimit || "",
+      pay_terms: form.payTerms || "",
+      pay_mode_id: form.payMode || "0",
+      currency_id: form.currency || "0",
+      adv_stat: form.advStat || "0",
+      gst_stat: form.gstStat ? 1 : 0,
+      gst_no: form.gstStat ? (form.gstNo || "") : "",
+      pan_no: form.panNo || "",
+      msme_reg_no: form.msmeNo || "",
+      dr_reg_no: form.drRegNo || "",
+
+      dl_stat: form.dlNA ? 1 : 0,
+      dl_no_1: form.dlNA ? "" : (form.dl1 || ""),
+      dl_no_1_valid_from: form.dlNA ? "" : (form.dl1From || ""),
+      dl_no_1_valid_to: form.dlNA ? "" : (form.dl1To || ""),
+      dl_no_2: form.dlNA ? "" : (form.dl2 || ""),
+      dl_no_2_valid_from: form.dlNA ? "" : (form.dl2From || ""),
+      dl_no_2_valid_to: form.dlNA ? "" : (form.dl2To || ""),
+
+      ret_lic_stat: form.retNA ? 1 : 0,
+      ret_lic_1_no: form.retNA ? "" : (form.retLic1 || ""),
+      ret_lic_1_valid_from: form.retNA ? "" : (form.retLic1From || ""),
+      ret_lic_1_valid_to: form.retNA ? "" : (form.retLic1To || ""),
+      ret_lic_2_no: form.retNA ? "" : (form.retLic2 || ""),
+      ret_lic_2_valid_from: form.retNA ? "" : (form.retLic2From || ""),
+      ret_lic_2_valid_to: form.retNA ? "" : (form.retLic2To || ""),
+
       customerLatitude: form.customerLatitude || 0,
       customerLongitude: form.customerLongitude || 0,
 
@@ -262,6 +380,7 @@ if (noAccountOwner) {
       brandFocus,
       brandRemainder,
       competitorBrands,
+      prescribedBrands,
 
       competitor_subcat_id,
       competitor_prod_id,
@@ -281,17 +400,36 @@ if (noAccountOwner) {
     return doctorDetails;
 };
 
-  // ── ADD ──────────────────────────────────────────────────────────────────
+  const buildRequest = (doctorDetails) => {
+    const filteredClinics = clinics.filter(c =>
+      form.cusType === "1"
+        ? c.repIncharge && c.repIncharge !== "0"
+        : c.repInchargePOS && c.repInchargePOS !== "0"
+    );
+    const hasNewFile = filteredClinics.some(c => FILE_UPLOADS.some(({ key }) => isFile(c[key])));
+    if (!hasNewFile) return { body: { doctorDetails }, config: undefined };
+
+    const fd = new FormData();
+    fd.append("doctorDetails", JSON.stringify(doctorDetails));
+    filteredClinics.forEach((c, i) => {
+      FILE_UPLOADS.forEach(({ key, field }) => {
+        if (isFile(c[key])) fd.append(`${field}_${i}`, c[key], c[key].name);
+      });
+    });
+    return { body: fd, config: { headers: { "Content-Type": "multipart/form-data" } } };
+  };
+
   const handleSubmit = useCallback(async () => {
     try {
       const doctorDetails = validateAndBuild();
       if (!doctorDetails) return;
 
-      doctorDetails.type_flag = 1; // Add request
+      doctorDetails.type_flag = 1;
 
       console.log("doctorDetails (add):", doctorDetails);
 
-      const res = await api.post("/doctorSubmit", { doctorDetails });
+      const { body, config } = buildRequest(doctorDetails);
+      const res = await api.post("/doctorSubmit", body, config);
 
       if (res.data.status === 200) {
         toast.success("Request to Add new, Generated successfully!!");
@@ -308,21 +446,21 @@ if (noAccountOwner) {
       console.error("Submit error:", err);
       toast.error("An error occurred during submission.");
     }
-  }, [form, clinics, brandData, competitorBrands, competitorRows]);
+  }, [form, clinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
 
-  // ── UPDATE ───────────────────────────────────────────────────────────────
   const handleUpdate = useCallback(async (cusId, tempId = 0) => {
     try {
       const doctorDetails = validateAndBuild();
       if (!doctorDetails) return;
 
-      doctorDetails.type_flag = 2;        // Update request
+      doctorDetails.type_flag = 2;
       doctorDetails.cus_id = cusId || 0;
       doctorDetails.temp_id = tempId || 0;
 
       console.log("doctorDetails (update):", doctorDetails);
 
-      const res = await api.post("/doctorUpdate", { doctorDetails });
+      const { body, config } = buildRequest(doctorDetails);
+      const res = await api.post("/doctorUpdate", body, config);
 
       if (res.data.status === 200) {
         toast.success("Update Request Generated successfully!!");
@@ -339,7 +477,7 @@ if (noAccountOwner) {
       console.error("Update error:", err);
       toast.error(err?.response?.data?.message || err.message || "An error occurred during update.");
     }
-  }, [form, clinics, brandData, competitorBrands, competitorRows]);
+  }, [form, clinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
 
   return { handleSubmit, handleUpdate };
 }

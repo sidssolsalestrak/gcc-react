@@ -34,9 +34,12 @@ export default function AppVersion() {
   const [tabValue, setTabValue] = useState(1);
   const [loading, setLoading] = useState(true);
   const [allAppData, setAllAppData] = useState([]);
+  const [userTypeOptions, setUserTypeOptions] = useState([]);
+  const [selUserType, setSelUserType] = useState("");
   const [selOs, setSelOs] = useState(1);
   const [appVersion, setAppVersion] = useState("");
   const [appBuild, setAppBuild] = useState("");
+  const [userTypeErr, setUserTypeErr] = useState(false);
   const [apptypeErr, setAppTypeErr] = useState(false);
   const [buildTypeErr, setBuildTypeErr] = useState(false);
   const [versionTypeErr, setVersionTypeErr] = useState(false);
@@ -46,6 +49,7 @@ export default function AppVersion() {
   const location = useLocation();
   const [masterPanel, setMasterPanel] = useState({});
   const [originalData, setOriginalData] = useState({
+    selUserType: "",
     selOs: 1,
     appVersion: "",
     appBuild: "",
@@ -61,6 +65,7 @@ export default function AppVersion() {
   }, []);
 
   useEffect(() => {
+    fetchFieldUser();
     fetchAppversionData();
   }, []);
 
@@ -72,6 +77,23 @@ export default function AppVersion() {
     }
     collectEditData(decodedAppEditId);
   }, [decodedAppEditId]);
+
+  const fetchFieldUser = async () => {
+    try {
+      let response = await api.post("/fieldUsers");
+      let data = Array.isArray(response.data.data) ? response.data.data : [];
+      const options = data.map((item) => ({
+        id: String(item.id),
+        label: item.client_alias || "",
+      }));
+      setUserTypeOptions(options);
+      if (options.length > 0) {
+        setSelUserType((prev) => prev || options[0].id);
+      }
+    } catch (err) {
+      console.log("fetch field user Err", err);
+    }
+  };
 
   const fetchAppversionData = async () => {
     setLoading(true);
@@ -112,9 +134,14 @@ export default function AppVersion() {
 
   const validateFields = () => {
     let isValid = true;
+    setUserTypeErr(false);
     setAppTypeErr(false);
     setBuildTypeErr(false);
     setVersionTypeErr(false);
+    if (!userTypeOptions.some((t) => t.id === String(selUserType))) {
+      setUserTypeErr(true);
+      isValid = false;
+    }
     if (!selOs || selOs === 0) {
       setAppTypeErr(true);
       isValid = false;
@@ -141,16 +168,25 @@ export default function AppVersion() {
   };
 
   const resetFields = () => {
+    const defaultUserType = userTypeOptions[0]?.id || "";
     setAppBuild("");
     setAppVersion("");
     setSelOs(1);
-    setOriginalData({ selOs: 1, appVersion: "", appBuild: "" });
+    setSelUserType(defaultUserType);
+    setUserTypeErr(false);
+    setOriginalData({
+      selUserType: defaultUserType,
+      selOs: 1,
+      appVersion: "",
+      appBuild: "",
+    });
   };
 
   const handleSubmit = async () => {
     setModifyLoading(true);
     try {
       let Payload = {
+        user_type: selUserType,
         os_type: selOs,
         appVersion: appVersion.trim(),
         appBuild: appBuild.trim(),
@@ -179,6 +215,7 @@ export default function AppVersion() {
   };
 
   const handleEdit = (id) => {
+    setUserTypeErr(false);
     setAppTypeErr(false);
     setBuildTypeErr(false);
     setVersionTypeErr(false);
@@ -194,10 +231,13 @@ export default function AppVersion() {
       const editVersion = versiondata[1];
       const editBuild = versiondata[4];
       const editOs = response.data.data[0].app_type;
+      const editUserType = String(response.data.data[0].user_type ?? "");
       setAppVersion(editVersion);
       setAppBuild(editBuild);
       setSelOs(editOs);
+      setSelUserType(editUserType);
       setOriginalData({
+        selUserType: editUserType,
         selOs: editOs,
         appVersion: editVersion,
         appBuild: editBuild,
@@ -208,11 +248,24 @@ export default function AppVersion() {
     }
   };
 
+  const tableData = allAppData.map((item) => ({
+    ...item,
+    type_name:
+      userTypeOptions.find((t) => t.id === String(item.user_type))?.label ||
+      "-",
+  }));
+
   const columns = [
     { field: "si_no", headerName: "#", filterable: true, sortable: true },
     {
+      field: "type_name",
+      headerName: "USER TYPE",
+      filterable: true,
+      sortable: true,
+    },
+    {
       field: "si_no",
-      headerName: "OS TYPE",
+      headerName: "OS",
       filterable: true,
       sortable: true,
       renderCell: (row) => (
@@ -233,7 +286,7 @@ export default function AppVersion() {
     },
     {
       field: "ver_name",
-      headerName: "APP BUILD",
+      headerName: "APP NAME",
       filterable: true,
       sortable: true,
     },
@@ -263,7 +316,8 @@ export default function AppVersion() {
   console.log("App version", appVersion);
 
   const isEdited = decodedAppEditId
-    ? String(selOs) !== String(originalData.selOs) ||
+    ? String(selUserType) !== String(originalData.selUserType) ||
+      String(selOs) !== String(originalData.selOs) ||
       (appVersion || "").trim() !== (originalData.appVersion || "").trim() ||
       (appBuild || "").trim() !== (originalData.appBuild || "").trim()
     : true;
@@ -330,10 +384,42 @@ export default function AppVersion() {
               }}
             >
               <FormControl>
-                <InputLabel id="os_label">OS*</InputLabel>
+                <InputLabel id="user_type_label">User Type*</InputLabel>
+                <Select
+                  labelId="user_type_label"
+                  label="User Type*"
+                  size="small"
+                  value={selUserType}
+                  onChange={(e) => {
+                    setSelUserType(e.target.value);
+                    if (userTypeErr) setUserTypeErr(false);
+                  }}
+                  error={userTypeErr}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 200,
+                      },
+                    },
+                  }}
+                >
+                  {userTypeOptions.map((opt) => (
+                    <MenuItem key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {userTypeErr ? (
+                  <Typography className="selError">
+                    User Type not Selected !
+                  </Typography>
+                ) : null}
+              </FormControl>
+              <FormControl>
+                <InputLabel id="os_label">App Type*</InputLabel>
                 <Select
                   labelId="os_label"
-                  label="OS*"
+                  label="App Type*"
                   size="small"
                   value={selOs}
                   onChange={(e) => setSelOs(e.target.value)}
@@ -356,7 +442,7 @@ export default function AppVersion() {
               </FormControl>
               <FormControl>
                 <TextField
-                  label="Version"
+                  label="Version Code"
                   value={appVersion}
                   placeholder={`${masterPanel["APVR"] || "App Version"}`}
                   size="small"
@@ -372,7 +458,7 @@ export default function AppVersion() {
               </FormControl>
               <FormControl>
                 <TextField
-                  label="Build"
+                  label="Version/Build"
                   value={appBuild}
                   placeholder="Build"
                   size="small"
@@ -404,7 +490,7 @@ export default function AppVersion() {
             <Box sx={{ p: 0 }}>
               <DataTable
                 columns={columns}
-                data={allAppData}
+                data={tableData}
                 loading={loading}
               />
             </Box>
