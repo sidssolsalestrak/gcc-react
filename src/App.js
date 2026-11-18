@@ -90,6 +90,8 @@ import MarketingInput from "./Masters/main/city/MarketingInput";
 import PharmacyType from "./Masters/main/city/PharmacyType.jsx";
 import Product from "./Masters/main/product/Product.jsx";
 import Marketingtool from "./Masters/main/city/MarketingTool.jsx"
+import UploadNewMrt from "./view/UploadDetailingMRT/uploadNewMRT.js";
+import AddNewDetailingMRT from "./view/UploadDetailingMRT/AddNewDetailingMRT.js";
 
 function App() {
   const relatedRoutes = {
@@ -208,6 +210,8 @@ function App() {
            />
           <Route path="/masters/disease/:editDiseaseId?"  element={<DiseaseMas />}        />
           <Route path="/masters/social/:editSocialId?"  element={<SocialType />}  />
+          <Route path='/detailing/add_det_mrt' element={<UploadNewMrt />}   />
+          <Route path="/detailing/add_new_detailing_mrt/:editId?" element={<AddNewDetailingMRT />}   />
           <Route element={<ProtectedRoute />}>
             <Route path="/:token" element={<TokenHandler />} />
             {/* <Route path="/" element={<Dashboard />} /> */}
