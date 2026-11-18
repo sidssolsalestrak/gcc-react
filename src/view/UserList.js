@@ -59,6 +59,7 @@ function UserList() {
   const [tableData, setTableData] = useState([]);
   const [progress, setProgress] = useState(null);
   const [sesUserId,setSesUserId]=useState(null)
+  const [tableLoading, setTableLoading] = useState(true);
   const toast = useToast()
   const [modifyLoading, setModifyLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -354,6 +355,7 @@ function UserList() {
 
   const fetchTable = async (payload) => {
     try {
+      setTableLoading(true)
       const res = await api.post("/userList", payload);
 
       setTableData(
@@ -365,6 +367,8 @@ function UserList() {
     }
     catch (err) {
       console.log("fetch userList Error", err)
+    }finally{
+      setTableLoading(false)
     }
 
   };
@@ -1000,6 +1004,7 @@ function UserList() {
             data={tableData}
             columns={columns}
             title="Users List"
+            loading={tableLoading}
           />
         </Box>
         <Dialog

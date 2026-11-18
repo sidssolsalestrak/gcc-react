@@ -33,6 +33,7 @@ function UserLog() {
   const [tableData, setTableData] = useState([]);
   const [progress, setProgress] = useState(null);
   const [userType, setUserType] = useState(null);
+  const [tableLoading, setTableLoading] = useState(true);
 
   const [filters, setFilters] = useState({
     module: "-1",
@@ -144,6 +145,7 @@ function UserLog() {
 
   const fetchTable = async () => {
     try {
+      setTableLoading(true)
       const res = await api.post("/getUserLog", {
         module: decodedParams.module,
         fromDt: decodedParams.fromDt,
@@ -161,6 +163,8 @@ function UserLog() {
     }
     catch (err) {
       console.log("fetch table Error", err)
+    }finally{
+      setTableLoading(false)
     }
   };
 
@@ -477,7 +481,7 @@ function UserLog() {
         </Grid>
 
         {/* TABLE */}
-        <DataTable data={tableData} columns={columns} title="User Log" />
+        <DataTable data={tableData} columns={columns} title="User Log" loading={tableLoading}/>
       </Box>
     </Layout>
   );
