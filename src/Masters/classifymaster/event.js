@@ -14,17 +14,6 @@ import { MdOutlineEdit } from "react-icons/md";
 import { getMasterPanel } from "../../services/masterPanelService";
 import usePageTitle from '../../services/usePageTitle'
 
-const TYPE_OPTIONS = [
-    { id: "8", label: "Med.Rep" },
-    { id: "9", label: "KAM" },
-    { id: "10", label: "Merchandiser" },
-]
-
-const getTypeLabel = (type) => {
-    const found = TYPE_OPTIONS.find((t) => String(t.id) === String(type))
-    return found ? found.label : ""
-}
-
 export default function Event() {
 
     const { editEventId } = useParams()
@@ -40,6 +29,7 @@ export default function Event() {
     const [hdnSelType, setHdnSelType] = useState("8")
 
     const [allEventData, setAllEventData] = useState([])
+    const [typeOptions, setTypeOptions] = useState([])
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [accStat, setAccStat] = useState(null)
@@ -66,6 +56,7 @@ export default function Event() {
     }, []);
 
     useEffect(() => {
+        fetchFieldUser()
         fetchAllEvent()
     }, [])
 
@@ -93,14 +84,26 @@ export default function Event() {
         }
     }
 
+    const fetchFieldUser = async () => {
+        try {
+            let response = await api.post("/fieldUsers")
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setTypeOptions(data.map((item) => ({
+                id: String(item.id),
+                label: item.client_alias || ""
+            })))
+        } catch (err) {
+            console.log("fetch field user Err", err)
+        }
+    }
+
     const fetchAllEvent = async () => {
         try {
             let response = await api.post("/readEvent", { event_id: null })
             let data = Array.isArray(response.data.data) ? response.data.data : []
             setAllEventData(data.map((item, index) => ({
                 ...item,
-                si_no: index + 1,
-                type_name: getTypeLabel(item.user_type)
+                si_no: index + 1
             })))
             storeAccStat(response)
         } catch (err) {
@@ -138,7 +141,7 @@ export default function Event() {
             isValid = false
         }
 
-        if (!TYPE_OPTIONS.some((t) => t.id === String(selType))) {
+        if (!typeOptions.some((t) => t.id === String(selType))) {
             setTypeError(true)
             isValid = false
         }
@@ -243,6 +246,11 @@ export default function Event() {
         String(hdnSelType) === String(selType) &&
         hdnEventName.toLowerCase().trim() === eventName.toLowerCase().trim()
 
+    const tableData = allEventData.map((item) => ({
+        ...item,
+        type_name: typeOptions.find((t) => t.id === String(item.user_type))?.label || ""
+    }))
+
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
         { field: "event_type", headerName: eventLabel, filterable: true, sortable: true },
@@ -310,9 +318,9 @@ export default function Event() {
                             />
 
                             <Autocomplete
-                                options={TYPE_OPTIONS}
+                                options={typeOptions}
                                 getOptionLabel={(option) => option.label || ""}
-                                value={TYPE_OPTIONS.find((t) => t.id === String(selType)) || null}
+                                value={typeOptions.find((t) => t.id === String(selType)) || null}
                                 onChange={(e, newVal) => {
                                     setSelType(newVal ? newVal.id : "8")
                                     if (typeError) setTypeError(false)
@@ -354,7 +362,7 @@ export default function Event() {
 
                     {tabValue === 1 && (
                         <Box sx={{ p: 0 }}>
-                            <DataTable columns={columns} data={allEventData} loading={loading} />
+                            <DataTable columns={columns} data={tableData} loading={loading} />
                         </Box>
                     )}
                 </Box>

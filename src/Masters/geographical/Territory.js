@@ -139,7 +139,7 @@ export default function Territory() {
 
         if (!terName || terName.trim() === "") {
             setTerError(true)
-            setTerErrorMsg(`The ${territoryLabel} Name field is required.`)
+            setTerErrorMsg(`The ${territoryLabel} field is required.`)
             isValid = false
         }  else if (/[^a-zA-Z0-9_\-\/ ]/.test(terName)) {
             setTerError(true)
@@ -313,7 +313,7 @@ export default function Territory() {
                                         size="small"
                                         error={areaError}
                                         required
-                                        helperText={areaError ? `The ${areaLabel} Name field is required.` : ""}
+                                        helperText={areaError ? `The ${areaLabel}  field is required.` : ""}
                                     />
                                 )}
                                 isOptionEqualToValue={(option, value) => option.id === value?.id}

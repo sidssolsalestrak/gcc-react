@@ -941,32 +941,6 @@ export default function Dashboard() {
   }, [refetchTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (filterType !== "0") return;
-    if (!dayWiseDate || !dayWiseDate.isSame(dayjs(), "day")) return;
-
-    let cancelled = false;
-    let timeoutId = null;
-
-    const scheduleNext = () => {
-      timeoutId = setTimeout(async () => {
-        if (cancelled) return;
-        // Skip this tick entirely if a fetch is already in flight (filter change or previous poll)
-        if (!isDayWiseFetchingRef.current) {
-          await fetchDayWiseData({ silent: true });
-        }
-        if (!cancelled) scheduleNext();
-      }, 2000);
-    };
-
-    scheduleNext();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [filterType, dayWiseDate, fetchDayWiseData]);
-
-  useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {
         setContainerWidth(entry.contentRect.width);

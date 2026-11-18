@@ -101,12 +101,7 @@ export default function Zone() {
     const label = masterPanel["ZONE"] || "Zone";
     if (!zoneName || zoneName.trim() === "") {
       setZoneError(true);
-      setZoneErrorMsg(`The ${label} Name field is Required`);
-      return false;
-    }
-    if (zoneName.trim().length < 3) {
-      setZoneError(true);
-      setZoneErrorMsg(`${label} Name must be at least 3 characters`);
+      setZoneErrorMsg(`The ${label}  field is required`);
       return false;
     }
     const specialChar = /[^a-zA-Z0-9_\-\/ ]/;
@@ -138,7 +133,6 @@ export default function Zone() {
         } else {
           toast.error(response.data.message)
         }
-        setEditId(null);
       } else {
         let response = await api.post("/addZone", { newZone: zoneName.trim() });
         if (response.data.success) {

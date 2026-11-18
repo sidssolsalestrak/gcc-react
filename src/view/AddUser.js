@@ -25,10 +25,49 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { FaThumbsUp, FaThumbsDown } from "react-icons/fa";
-import { jwtDecode } from 'jwt-decode'
+import { jwtDecode } from "jwt-decode";
 import ConfirmationDialog from "../utils/confirmDialog";
 import { getMasterPanel } from "../services/masterPanelService";
 import usePageTitle from "../services/usePageTitle";
+
+// 0 = no territory fields, 1 = Zone, 2 = Region, 3 = Area, 5 = down to Beat
+const TYPE_LEVEL = {
+  1: 0, // Business Head
+  2: 0, // Super Admin
+  3: 0, // Admin
+  13: 1, // Regional Head
+  17: 1, // Marketing Managers
+  14: 2, // Country Head
+  15: 3, // Line Managers
+  6: 5, // Med Rep
+  8: 5, // KAM
+  10: 5, // Merchandiser
+  11: 5, // Retail Sales Officer
+};
+const getLevel = (typeId) => TYPE_LEVEL[Number(typeId)] ?? 0;
+
+// Report To Type rules: user type -> allowed "Report To" user types
+// "ALL" = every type, { except: [...] } = every type except those
+const HO_TYPES = [1, 2, 3, 4, 12];
+const MKT_TYPES = [...HO_TYPES, 5, 17];
+const REPORT_TO_RULES = {
+  1: HO_TYPES, 2: HO_TYPES, 3: HO_TYPES, 4: HO_TYPES,
+  5: MKT_TYPES, 17: MKT_TYPES,
+  9: "ALL", 11: "ALL",
+  6: { except: [9, 11] }, 8: { except: [9, 11] }, 10: { except: [9, 11] },
+  15: [...MKT_TYPES, 13, 14, 15],
+  16: [...MKT_TYPES, 13, 14, 15],
+  14: [...MKT_TYPES, 13, 14],
+  13: [...MKT_TYPES, 13],
+};
+
+const getReportToTypes = (typeId, allTypes) => {
+  if (!typeId) return [];                              // no user type selected yet
+  const rule = REPORT_TO_RULES[Number(typeId)];
+  if (!rule || rule === "ALL") return allTypes;        // "ALL", or a type with no rule
+  if (Array.isArray(rule)) return allTypes.filter((t) => rule.includes(Number(t.id)));
+  return allTypes.filter((t) => !rule.except.includes(Number(t.id)));
+};
 
 function AddUser() {
   const navigate = useNavigate();
@@ -47,7 +86,7 @@ function AddUser() {
   const [designations, setDesignations] = useState([]);
   const [titles, setTitles] = useState([]);
   const [accStat, setAccStat] = useState(null);
-
+  const [defaultBU, setDefaultBU] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedDept, setSelectedDept] = useState("");
   const [selectedDesig, setSelectedDesig] = useState("");
@@ -142,10 +181,10 @@ function AddUser() {
 
   const [weeklyOff, setWeeklyOff] = useState(["1"]);
   const [weekDays, setWeekDays] = useState([]);
-  const [flag, setFlag] = useState(0)
-  const [oldProfileImage, setOldProfileImage] = useState("")
-  const [existingPass, setExistingPass] = useState(null)
-  const [sessionId, setSessionId] = useState(null)
+  const [flag, setFlag] = useState(0);
+  const [oldProfileImage, setOldProfileImage] = useState("");
+  const [existingPass, setExistingPass] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
   const [modifyLoading, setModifyLoading] = useState(false);
 
   /* ---------- snapshot of loaded user data, used to detect "no changes" ---------- */
@@ -166,7 +205,7 @@ function AddUser() {
   const territoryLabel = masterPanel["TERR"] || "Territory";
   const desigLabel = masterPanel["DESI"] || "Designation";
   const businessLabel = masterPanel["BUNT"] || "Business Unit";
-  usePageTitle(`${userLabel} Master`)
+  usePageTitle(`${userLabel} Master`);
 
   useEffect(() => {
     const loadMasterPanel = async () => {
@@ -177,36 +216,36 @@ function AddUser() {
   }, []);
 
   useEffect(() => {
-                const resolveAccStat = async () => {
-                  try {
-                    const res = await axios.post("/getAccStat", {
-                      menu_url: "Users/users_list",
-                    });
-            
-                    const stat = res.data?.data?.acc_stat;
-                    if (stat !== null && stat !== undefined) {
-                      localStorage.setItem("acc_stat", stat);
-                      setAccStat(String(stat));
-                    }
-                  } catch (err) {
-                    console.log(err);
-                  }
-                };
-            
-                resolveAccStat();
-        }, []);
+    const resolveAccStat = async () => {
+      try {
+        const res = await axios.post("/getAccStat", {
+          menu_url: "Users/users_list",
+        });
 
-      useEffect(() => {
-      if (!id && businessUnits.length === 1 && selectedBU.length === 0) {
-        setSelectedBU([String(businessUnits[0].id)]);
+        const stat = res.data?.data?.acc_stat;
+        if (stat !== null && stat !== undefined) {
+          localStorage.setItem("acc_stat", stat);
+          setAccStat(String(stat));
+        }
+      } catch (err) {
+        console.log(err);
       }
-    } , [businessUnits]);
+    };
 
-    useEffect(() => {
+    resolveAccStat();
+  }, []);
+
+  useEffect(() => {
+    if (!id && businessUnits.length === 1 && selectedBU.length === 0) {
+      setSelectedBU([String(businessUnits[0].id)]);
+    }
+  }, [businessUnits]);
+
+  useEffect(() => {
     if (showRsDay && !rsDay) {
       setRsDay(1);
     }
-   }, [showRsDay]);
+  }, [showRsDay]);
 
   const [toast, setToast] = useState({
     open: false,
@@ -223,7 +262,10 @@ function AddUser() {
       const res = await axios.post("/bussUint");
       if (res.data.status === 200) setBusinessUnits(res.data.data);
     } catch (err) {
-      console.error("Business Unit API error:", err.response?.data || err.message);
+      console.error(
+        "Business Unit API error:",
+        err.response?.data || err.message,
+      );
     }
   };
 
@@ -261,7 +303,10 @@ function AddUser() {
         setZones(res.data.data || []);
       }
     } catch (err) {
-      console.error("Zone Master API error:", err.response?.data || err.message);
+      console.error(
+        "Zone Master API error:",
+        err.response?.data || err.message,
+      );
     }
   };
 
@@ -278,13 +323,11 @@ function AddUser() {
         }));
 
         setReportToUsers(formatted);
+      } else {
+        setReportToUsers([]);
       }
-      else {
-        setReportToUsers([])
-      }
-    }
-    catch (err) {
-      console.log("fetching get to user err", err)
+    } catch (err) {
+      console.log("fetching get to user err", err);
     }
   };
 
@@ -297,7 +340,10 @@ function AddUser() {
       if (statusRes.data.status === 200)
         setEmpStatusList(statusRes.data.data || []);
     } catch (err) {
-      console.error("Emp Dropdowns API error:", err.response?.data || err.message);
+      console.error(
+        "Emp Dropdowns API error:",
+        err.response?.data || err.message,
+      );
     }
   };
 
@@ -321,7 +367,10 @@ function AddUser() {
 
         // Primary fields
         // setSelectedType(d.user_type || "");
-        setSelectedBU(d.b_unit ? d.b_unit.split(",") : []);
+        const buArr = d.b_unit ? d.b_unit.split(",") : [];
+        const priBu = d.pri_bu ? String(d.pri_bu) : buArr[0] || "";
+        setSelectedBU(buArr);
+        setDefaultBU(priBu);
         await handleUserTypeChange(
           { target: { value: d.user_type } },
           typesList,
@@ -337,7 +386,7 @@ function AddUser() {
         setEmail(d.email_id || "");
         setAddress(d.user_addr || "");
 
-        setOtherRef(d.user_ref || "")
+        setOtherRef(d.user_ref || "");
         setDateOfJoin(
           d.emp_doj && d.emp_doj !== "1900-01-01T00:00:00.000Z"
             ? d.emp_doj.split("T")[0]
@@ -350,7 +399,9 @@ function AddUser() {
 
         setEmployeeType(d.emp_type_id || "");
         setEmployeeStatus(d.emp_stat_id || "");
-        setGrossSalary(d.sal_amt !== null && d.sal_amt !== undefined ? d.sal_amt : "");
+        setGrossSalary(
+          d.sal_amt !== null && d.sal_amt !== undefined ? d.sal_amt : "",
+        );
 
         if (d.user_id_stat === 1) {
           setUseMobile(true);
@@ -386,7 +437,7 @@ function AddUser() {
 
         if (d.image_upl) {
           const imgUrl = `${process.env.REACT_APP_PROFILE_URL}/${d.image_upl}`;
-          console.log("image url passing",imgUrl)
+          console.log("image url passing", imgUrl);
           const img = new Image();
           img.onload = () => setPreviewImage(imgUrl);
           img.onerror = () => setPreviewImage(profile);
@@ -404,22 +455,22 @@ function AddUser() {
         setLastAppLogin(d.last_app_login || "");
         setAppVersion(d.app_version || "");
         setAuthKey(d.auth_key || "");
-        setOtp(d.otp || "");
+        setOtp(d.app_otp || "");
 
         setAppConfigStatus(d.app_stat || 0);
         setDelFlag(d.del_flag || 0);
         setAccStatus(d.acc_stat || 0);
         setDeactivateType(String(d.deact_type || "0"));
         setDeactivateRemarks(d.deact_rem || "");
-        setExistingPass(d.user_pass || null)
-        setFlag(d.id > 0 ? 1 : 0)
+        setExistingPass(d.user_pass || null);
+        setFlag(d.id > 0 ? 1 : 0);
 
         // These come from `d` (getUserData response) directly — kept outside
         // the zone/region/area/territory/beat API block below so they're
         // always set regardless of whether that block's calls succeed or fail.
         setPlanSubCutoff(String(d.plan_rule_id || "0"));
         setPsDay(d.plan_rule_day || "");
-        setPlanApproval(String(d.plan_app_stat || "0")); 
+        setPlanApproval(String(d.plan_app_stat || "0"));
 
         setRepSubCutoff(String(d.report_rule_id || "0"));
         setWeekend(d.report_rule_day || ""); // if needed
@@ -434,26 +485,30 @@ function AddUser() {
         setWeeklyOff(d.weekly_off ? d.weekly_off.split(",") : []);
 
         // Handle relieving date - filter out invalid default dates
-        const relievingDateStr = d.emp_reliev_dt ? d.emp_reliev_dt.split("T")[0] : "";
-        const invalidDates = ['1900-01-01', '1970-01-01', '0000-00-00', '1899-12-31'];
+        const relievingDateStr = d.emp_reliev_dt
+          ? d.emp_reliev_dt.split("T")[0]
+          : "";
+        const invalidDates = [
+          "1900-01-01",
+          "1970-01-01",
+          "0000-00-00",
+          "1899-12-31",
+        ];
         setRelievingDate(
           relievingDateStr && !invalidDates.includes(relievingDateStr)
             ? relievingDateStr
-            : ""
+            : "",
         );
 
         const dobStr = d.emp_dob ? d.emp_dob.split("T")[0] : "";
-        setDateOfBirth(
-          dobStr && !invalidDates.includes(dobStr)
-            ? dobStr
-            : ""
-        );
+        setDateOfBirth(dobStr && !invalidDates.includes(dobStr) ? dobStr : "");
 
         /* ---------- build the "original" snapshot straight from `d`
            (not from state, since state updates above are async) so
            the Update button can compare against it later ---------- */
         setOriginalData({
           selectedBU: d.b_unit ? d.b_unit.split(",") : [],
+          defaultBU: priBu,
           selectedType: d.user_type || "",
           selectedDept: d.dep_id || "",
           selectedDesig: d.desig_id || "",
@@ -526,7 +581,9 @@ function AddUser() {
               setSelectedAreas(areas);
 
               if (areas.length) {
-                const terRes = await axios.post("/getTerritory", { area: areas });
+                const terRes = await axios.post("/getTerritory", {
+                  area: areas,
+                });
                 const terData = terRes.data.data || [];
                 setTerritories(terData);
 
@@ -554,7 +611,7 @@ function AddUser() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const init = async () => {
       await getBusinessUnit();
       const types = await getUserTypes();
@@ -579,15 +636,26 @@ function AddUser() {
     const token = localStorage.getItem("session-token");
     if (token) {
       try {
-        let decoded = jwtDecode(token)
-        setSessionId(decoded.user_id)
-        console.log("decoded user id", decoded.user_id)
+        let decoded = jwtDecode(token);
+        setSessionId(decoded.user_id);
+        console.log("decoded user id", decoded.user_id);
       } catch (err) {
-        console.log(err)
+        console.log(err);
       }
     }
-  }, [])
+  }, []);
 
+ useEffect(() => {
+  if (selectedBU.length === 0) {
+    setDefaultBU("");
+    return;
+  }
+  setDefaultBU((prev) =>
+    selectedBU.map(String).includes(String(prev))
+      ? String(prev)
+      : String(selectedBU[0]),
+  );
+}, [selectedBU]);
 
   const [confirmationDialog, setConfirmationDialog] = useState({
     open: false,
@@ -651,7 +719,9 @@ function AddUser() {
 
     return 1;
   };
-  console.log("manager type",mngType)
+  console.log("manager type", mngType);
+  const territoryLevel = getLevel(selectedType);
+    const reportToTypeOptions = getReportToTypes(selectedType, userTypes);
 
   const validate = () => {
     let temp = {};
@@ -661,32 +731,42 @@ function AddUser() {
     if (!selectedTitle) temp.selectedTitle = "Please select title";
     if (!employeeCode.trim()) temp.employeeCode = "Employee Code is required";
     if (!fullName.trim()) temp.fullName = "First Name is required";
-    if (!String(userId).trim()) temp.userId = "Please Select Mobile No. OR Email ID for username!";
+    if (!String(userId).trim())
+      temp.userId = "Please Select Mobile No. OR Email ID for username!";
     if (!String(mobileNum).trim()) temp.mobileNum = "Mobile number is required";
-    if (String(mobileNum).trim() !== "" && String(mobileNum).trim().length < 10) temp.mobileNum = "Please Enter Valid 10 digit mobile number";
+    if (String(mobileNum).trim() !== "" && String(mobileNum).trim().length < 10)
+      temp.mobileNum = "Please Enter Valid 10 digit mobile number";
     if (!email.trim()) temp.email = "Email is required";
-    if (email.trim() !== "" && !emailRegex.test(email.trim())) temp.email = "Please Enter a valid Email";
+    if (email.trim() !== "" && !emailRegex.test(email.trim()))
+      temp.email = "Please Enter a valid Email";
     if (!address.trim()) temp.address = "Address is required";
     if (!hq.trim()) temp.hq = "Please Enter HQ";
     if (!dateOfBirth) temp.dateOfBirth = "Date of Birth is required";
     if (!dateOfJoin) temp.dateOfJoin = "Date of Joining is required";
-    
+
     // Only validate region if showRegion is true AND user type > 4
-    if (showRegion && Number(selectedType) > 4 && selectedRegions.length === 0) {
+    if (showRegion && territoryLevel > 0 && selectedRegions.length === 0) {
       temp.region = `Please Select ${regLabel}`;
     }
-    
+
     if (!selectedReportType) temp.reportType = "Please Select Reporting Type";
     if (!selectedReportTo) temp.reportTo = "Please Select Reporting To User";
     if (!employeeType) temp.employeeType = "Select Employee Type";
     if (!employeeStatus) temp.employeeStatus = "Select Employee Status";
-    if (!selectedBU || selectedBU.length === 0) temp.selectBUnit = `Please select ${businessLabel}`;
-    if (grossSalary && (isNaN(Number(grossSalary)) || Number(grossSalary) < 0)) {
+    if (!selectedBU || selectedBU.length === 0)
+      temp.selectBUnit = `Please select ${businessLabel}`;
+    if (
+      grossSalary &&
+      (isNaN(Number(grossSalary)) || Number(grossSalary) < 0)
+    ) {
       temp.grossSalary = "Enter valid Gross Salary";
     }
 
+    if (!defaultBU)
+      temp.defaultBU = `Please select Primary ${businessLabel}`;
+
     // Territory validation based on visibility flags
-    if (Number(selectedType) > 4) {
+    if (territoryLevel > 0) {
       // Only validate if the field is shown (showZone, showRegion, etc.)
       if (showZone && selectedZones.length === 0) {
         temp.zone = `Select ${zonelabel}`;
@@ -722,7 +802,7 @@ function AddUser() {
         temp.confirmPassword = "Password & Confirm Password does not match";
       }
     }
-    
+
     // UPDATE USER
     if (id && (password || confirmPassword)) {
       if (!password || !confirmPassword) {
@@ -739,8 +819,8 @@ function AddUser() {
     console.log("validation failures", temp);
     setErrors(temp);
 
-    const duplicateKeys = ['email', 'mobileNum', 'employeeCode'];
-    const hasDuplicateError = duplicateKeys.some(key => duplicateErrors[key]);
+    const duplicateKeys = ["email", "mobileNum", "employeeCode"];
+    const hasDuplicateError = duplicateKeys.some((key) => duplicateErrors[key]);
 
     return Object.keys(temp).length === 0 && !hasDuplicateError;
   };
@@ -750,7 +830,7 @@ function AddUser() {
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    setModifyLoading(true)
+    setModifyLoading(true);
     try {
       const formData = new FormData();
 
@@ -759,7 +839,9 @@ function AddUser() {
         if (!selectedIds || selectedIds.length === 0) return "";
         return selectedIds
           .map((id) => {
-            const found = options.find((o) => String(o[valueKey]) === String(id));
+            const found = options.find(
+              (o) => String(o[valueKey]) === String(id),
+            );
             return found ? found[labelKey] : "";
           })
           .join(",");
@@ -787,12 +869,22 @@ function AddUser() {
 
       // Business Unit IDs + Names
       formData.append("buUnit", selectedBU.join(","));
-      formData.append("buUnitName", getNames(selectedBU, businessUnits, "id", "brand_name"));
+      formData.append(
+        "buUnitName",
+        getNames(selectedBU, businessUnits, "id", "brand_name"),
+      );
+      formData.append(
+        "pri_bu",
+        selectedBU.length === 1 ? selectedBU[0] : defaultBU,
+      );
 
-      if (Number(selectedType) > 4) {
+      if (territoryLevel > 0) {
         if (mngType === 1) {
           formData.append("zone_id", selectedZones.join(","));
-          formData.append("zone_name", getNames(selectedZones, zones, "id", "zone_name"));
+          formData.append(
+            "zone_name",
+            getNames(selectedZones, zones, "id", "zone_name"),
+          );
           formData.append("reg_id", 0);
           formData.append("reg_Name", "");
           formData.append("area_id", 0);
@@ -803,9 +895,15 @@ function AddUser() {
           formData.append("beat_name", "");
         } else if (mngType === 2) {
           formData.append("zone_id", selectedZones.join(","));
-          formData.append("zone_name", getNames(selectedZones, zones, "id", "zone_name"));
+          formData.append(
+            "zone_name",
+            getNames(selectedZones, zones, "id", "zone_name"),
+          );
           formData.append("reg_id", selectedRegions.join(","));
-          formData.append("reg_Name", getNames(selectedRegions, regions, "id", "reg_name"));
+          formData.append(
+            "reg_Name",
+            getNames(selectedRegions, regions, "id", "reg_name"),
+          );
           formData.append("area_id", 0);
           formData.append("area_name", "");
           formData.append("ter_id", 0);
@@ -814,37 +912,73 @@ function AddUser() {
           formData.append("beat_name", "");
         } else if (mngType === 3) {
           formData.append("zone_id", selectedZones.join(","));
-          formData.append("zone_name", getNames(selectedZones, zones, "id", "zone_name"));
+          formData.append(
+            "zone_name",
+            getNames(selectedZones, zones, "id", "zone_name"),
+          );
           formData.append("reg_id", selectedRegions.join(","));
-          formData.append("reg_Name", getNames(selectedRegions, regions, "id", "reg_name"));
+          formData.append(
+            "reg_Name",
+            getNames(selectedRegions, regions, "id", "reg_name"),
+          );
           formData.append("area_id", selectedAreas.join(","));
-          formData.append("area_name", getNames(selectedAreas, areas, "id", "area_name"));
+          formData.append(
+            "area_name",
+            getNames(selectedAreas, areas, "id", "area_name"),
+          );
           formData.append("ter_id", 0);
           formData.append("ter_name", "");
           formData.append("beat_id", 0);
           formData.append("beat_name", "");
         } else if (mngType === 4) {
           formData.append("zone_id", selectedZones.join(","));
-          formData.append("zone_name", getNames(selectedZones, zones, "id", "zone_name"));
+          formData.append(
+            "zone_name",
+            getNames(selectedZones, zones, "id", "zone_name"),
+          );
           formData.append("reg_id", selectedRegions.join(","));
-          formData.append("reg_Name", getNames(selectedRegions, regions, "id", "reg_name"));
+          formData.append(
+            "reg_Name",
+            getNames(selectedRegions, regions, "id", "reg_name"),
+          );
           formData.append("area_id", selectedAreas.join(","));
-          formData.append("area_name", getNames(selectedAreas, areas, "id", "area_name"));
+          formData.append(
+            "area_name",
+            getNames(selectedAreas, areas, "id", "area_name"),
+          );
           formData.append("ter_id", selectedTerritories.join(","));
-          formData.append("ter_name", getNames(selectedTerritories, territories, "id", "ter_name"));
+          formData.append(
+            "ter_name",
+            getNames(selectedTerritories, territories, "id", "ter_name"),
+          );
           formData.append("beat_id", 0);
           formData.append("beat_name", "");
         } else if (mngType === 0) {
           formData.append("zone_id", selectedZones.join(","));
-          formData.append("zone_name", getNames(selectedZones, zones, "id", "zone_name"));
+          formData.append(
+            "zone_name",
+            getNames(selectedZones, zones, "id", "zone_name"),
+          );
           formData.append("reg_id", selectedRegions.join(","));
-          formData.append("reg_Name", getNames(selectedRegions, regions, "id", "reg_name"));
+          formData.append(
+            "reg_Name",
+            getNames(selectedRegions, regions, "id", "reg_name"),
+          );
           formData.append("area_id", selectedAreas.join(","));
-          formData.append("area_name", getNames(selectedAreas, areas, "id", "area_name"));
+          formData.append(
+            "area_name",
+            getNames(selectedAreas, areas, "id", "area_name"),
+          );
           formData.append("ter_id", selectedTerritories.join(","));
-          formData.append("ter_name", getNames(selectedTerritories, territories, "id", "ter_name"));
+          formData.append(
+            "ter_name",
+            getNames(selectedTerritories, territories, "id", "ter_name"),
+          );
           formData.append("beat_id", selectedBeats.join(","));
-          formData.append("beat_name", getNames(selectedBeats, beats, "id", "beat_name"));
+          formData.append(
+            "beat_name",
+            getNames(selectedBeats, beats, "id", "beat_name"),
+          );
         }
       } else {
         formData.append("zone_id", 0);
@@ -867,10 +1001,10 @@ function AddUser() {
       formData.append("web_access", webAccess === "yes" ? 0 : 1);
       formData.append("app_access", appAccess === "yes" ? 0 : 1);
       formData.append("plan_sub_cutoff", planSubCutoff);
-      formData.append("ps_day", showPlanDay?(psDay ? psDay : 0 ): 0 );
+      formData.append("ps_day", showPlanDay ? (psDay ? psDay : 0) : 0);
       formData.append("plan_approval", planApproval);
       formData.append("rep_sub_cutoff", repSubCutoff);
-      formData.append("weekend", showWeekend?weekend:"");
+      formData.append("weekend", showWeekend ? weekend : "");
       formData.append("rs_day", showRsDay ? (rsDay ? rsDay : 0) : 0);
       formData.append("data_mode", dataMode);
       formData.append("location_tracking", locationTracking);
@@ -882,15 +1016,17 @@ function AddUser() {
       formData.append("deact_type", deactivateType);
       formData.append("deactRemarks", deactivateRemarks);
       formData.append("flag", flag);
-      formData.append("rep_type", reportType)
-      formData.append("desig_name", getNames([selectedDesig], designations, "id", "desig_name"))
-      formData.append("oldStat", accStatus)
+      formData.append("rep_type", reportType);
+      formData.append(
+        "desig_name",
+        getNames([selectedDesig], designations, "id", "desig_name"),
+      );
+      formData.append("oldStat", accStatus);
 
       if (selectedFile) {
         formData.append("profileImg_file", selectedFile);
-      }
-      else {
-        formData.append("hdprofileImg", oldProfileImage)
+      } else {
+        formData.append("hdprofileImg", oldProfileImage);
       }
 
       /* ===== DEBUG (remove later) ===== */
@@ -898,7 +1034,6 @@ function AddUser() {
         console.log(pair[0], pair[1]);
       }
       // return;
-
 
       const res = await axios.post("/AddNewUser", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -914,25 +1049,24 @@ function AddUser() {
           navigate(-1);
         }, 2000);
       }
-      if(res.data.status === 400) {
+      if (res.data.status === 400) {
         setToast({
           open: true,
           message: res.data.message,
           severity: "error",
-        })
+        });
       }
     } catch (err) {
       setToast({
         open: true,
-        message:"something went wrong try again!!",
+        message: "something went wrong try again!!",
         severity: "error",
-      })
+      });
       console.error(err);
-    }
-    finally{
-      setTimeout(()=>{
-       setModifyLoading(false)
-      },2500)
+    } finally {
+      setTimeout(() => {
+        setModifyLoading(false);
+      }, 2500);
       setOpenSaveDialog(false);
     }
   };
@@ -1002,20 +1136,20 @@ function AddUser() {
         message: "File size must be under 2MB",
         severity: "error",
       });
-      e.target.value = '';
+      e.target.value = "";
       return;
     }
 
     // 2. Extension check
     const allowed = /jpeg|jpg|gif|jpe|png/;
-    const ext = file.name.split('.').pop().toLowerCase();
+    const ext = file.name.split(".").pop().toLowerCase();
     if (!allowed.test(ext)) {
       setToast({
         open: true,
         message: "Only jpg, jpeg, png, gif files are allowed",
         severity: "error",
       });
-      e.target.value = '';
+      e.target.value = "";
       return;
     }
 
@@ -1026,16 +1160,16 @@ function AddUser() {
         message: "Only jpg, jpeg, png, gif file types are allowed",
         severity: "error",
       });
-      e.target.value = '';
+      e.target.value = "";
       return;
     }
 
     // 4. Safe filename check (no double extensions like file.php.jpg)
-    const nameParts = file.name.split('.');
-    const allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'jpe'];
+    const nameParts = file.name.split(".");
+    const allowedTypes = ["jpg", "jpeg", "png", "gif", "jpe"];
     const middleParts = nameParts.slice(1, -1);
     const hasDangerousExt = middleParts.some(
-      (part) => !allowedTypes.includes(part.toLowerCase())
+      (part) => !allowedTypes.includes(part.toLowerCase()),
     );
     if (hasDangerousExt) {
       setToast({
@@ -1043,7 +1177,7 @@ function AddUser() {
         message: "Invalid filename",
         severity: "error",
       });
-      e.target.value = '';
+      e.target.value = "";
       return;
     }
 
@@ -1085,7 +1219,7 @@ function AddUser() {
     setFullName(value);
   };
 
-    const handleLastNameChange = (value) => {
+  const handleLastNameChange = (value) => {
     const regex = /^[a-zA-Z_][a-zA-Z_\s]*$|^$/;
 
     if (!regex.test(value)) {
@@ -1104,10 +1238,10 @@ function AddUser() {
     const val = Array.isArray(value) ? value : [value];
 
     setSelectedZones(val);
-    setSelectedRegions([])
-    setSelectedAreas([])
-    setSelectedTerritories([])
-    setSelectedBeats([])
+    setSelectedRegions([]);
+    setSelectedAreas([]);
+    setSelectedTerritories([]);
+    setSelectedBeats([]);
     if (val.length > 0) {
       try {
         const res = await axios.post("/getRegion", {
@@ -1116,7 +1250,10 @@ function AddUser() {
 
         setRegions(res.data.data || []);
       } catch (err) {
-        console.error("Get Region API error:", err.response?.data || err.message);
+        console.error(
+          "Get Region API error:",
+          err.response?.data || err.message,
+        );
         setRegions([]);
       }
     } else {
@@ -1130,9 +1267,9 @@ function AddUser() {
   const handleRegionChange = async (value) => {
     const val = Array.isArray(value) ? value : [value];
     setSelectedRegions(val);
-    setSelectedAreas([])
-    setSelectedTerritories([])
-    setSelectedBeats([])
+    setSelectedAreas([]);
+    setSelectedTerritories([]);
+    setSelectedBeats([]);
     if (val.length > 0) {
       try {
         const res = await axios.post("/getAreaData", {
@@ -1159,11 +1296,18 @@ function AddUser() {
     if (!emailRegex.test(trimmed)) return;
 
     try {
-      const res = await axios.post("/checkEmailUser", { email: trimmed, id: id || null });
+      const res = await axios.post("/checkEmailUser", {
+        email: trimmed,
+        id: id || null,
+      });
       if (res.data.status === 400) {
-        setDuplicateErrors(prev => ({ ...prev, email: res.data.message }));
+        setDuplicateErrors((prev) => ({ ...prev, email: res.data.message }));
       } else {
-        setDuplicateErrors(prev => { const e = { ...prev }; delete e.email; return e; });
+        setDuplicateErrors((prev) => {
+          const e = { ...prev };
+          delete e.email;
+          return e;
+        });
       }
     } catch (err) {
       console.error("Email check failed", err);
@@ -1172,13 +1316,23 @@ function AddUser() {
 
   const checkMobileDuplicate = async (mobileVal) => {
     if (!mobileVal || mobileVal.length < 10) return;
-    console.log("mobile")
+    console.log("mobile");
     try {
-      const res = await axios.post("/checkMobileNumber", { mobile: mobileVal, id: id || null });
+      const res = await axios.post("/checkMobileNumber", {
+        mobile: mobileVal,
+        id: id || null,
+      });
       if (res.data.status === 400) {
-        setDuplicateErrors(prev => ({ ...prev, mobileNum: res.data.message }));
+        setDuplicateErrors((prev) => ({
+          ...prev,
+          mobileNum: res.data.message,
+        }));
       } else {
-        setDuplicateErrors(prev => { const e = { ...prev }; delete e.mobileNum; return e; });
+        setDuplicateErrors((prev) => {
+          const e = { ...prev };
+          delete e.mobileNum;
+          return e;
+        });
       }
     } catch (err) {
       console.error("Mobile check failed", err);
@@ -1188,11 +1342,21 @@ function AddUser() {
   const checkEmpCodeDuplicate = async (codeVal) => {
     if (!codeVal.trim()) return;
     try {
-      const res = await axios.post("/checkEmpCode", { empCode: codeVal, id: id || null });
+      const res = await axios.post("/checkEmpCode", {
+        empCode: codeVal,
+        id: id || null,
+      });
       if (res.data.status === 400) {
-        setDuplicateErrors(prev => ({ ...prev, employeeCode: res.data.message }));
+        setDuplicateErrors((prev) => ({
+          ...prev,
+          employeeCode: res.data.message,
+        }));
       } else {
-        setDuplicateErrors(prev => { const e = { ...prev }; delete e.employeeCode; return e; });
+        setDuplicateErrors((prev) => {
+          const e = { ...prev };
+          delete e.employeeCode;
+          return e;
+        });
       }
     } catch (err) {
       console.error("Emp code check failed", err);
@@ -1202,8 +1366,8 @@ function AddUser() {
   const handleAreaChange = async (value) => {
     const val = Array.isArray(value) ? value : [value];
     setSelectedAreas(val);
-    setSelectedTerritories([])
-    setSelectedBeats([])
+    setSelectedTerritories([]);
+    setSelectedBeats([]);
     if (val.length > 0) {
       try {
         const res = await axios.post("/getTerritory", {
@@ -1212,7 +1376,10 @@ function AddUser() {
 
         setTerritories(res.data.data || []);
       } catch (err) {
-        console.error("Get Territory API error:", err.response?.data || err.message);
+        console.error(
+          "Get Territory API error:",
+          err.response?.data || err.message,
+        );
         setTerritories([]);
       }
     } else {
@@ -1225,7 +1392,7 @@ function AddUser() {
     const val = Array.isArray(value) ? value : [value];
 
     setSelectedTerritories(val);
-    setSelectedBeats([])
+    setSelectedBeats([]);
     if (val.length > 0) {
       try {
         const res = await axios.post("/getBeat", {
@@ -1267,20 +1434,17 @@ function AddUser() {
         message: "Server error during logout",
         severity: "error",
       });
-    }
-    finally {
-      closeConfirmationDialog()
+    } finally {
+      closeConfirmationDialog();
     }
   };
 
   const handleUserTypeChange = (e, typesList = userTypes) => {
     const selected = e.target.value;
-    const selectedObj = typesList.find(
-      (u) => String(u.id) === String(selected),
-    );
-    const mng = selectedObj?.mng_type || 0;
+    const level = getLevel(selected);
+    console.log("selected type:", selected, "level:", level);
     setSelectedType(selected);
-    setMngType(mng);
+    setMngType(level === 5 ? 0 : level);
 
     // RESET ALL VISIBILITY
     setShowZone(false);
@@ -1315,37 +1479,11 @@ function AddUser() {
     setSelectedReportTo("");
     setReportToUsers([]);
 
-    console.log("manage type",mng)
-    if (selected > 4) {
-      if (mng === 1) {
-        setShowZone(true);
-      }
-      if (mng === 2) {
-        setShowZone(true);
-        setShowRegion(true);
-      }
-      if (mng === 3) {
-        setShowZone(true);
-        setShowRegion(true);
-        setShowArea(true);
-      }
-      if (mng === 4) {
-        setShowZone(true);
-        setShowRegion(true);
-        setShowArea(true);
-        setShowTerritory(true);
-      }
-      if (mng === 0) {
-        if (Number(selected) === 12) {
-          return;
-        }
-        setShowZone(true);
-        setShowRegion(true);
-        setShowArea(true);
-        setShowTerritory(true);
-        setShowBeat(true);
-      }
-    }
+    setShowZone(level >= 1);
+    setShowRegion(level >= 2);
+    setShowArea(level >= 3);
+    setShowTerritory(level >= 4);
+    setShowBeat(level >= 5);
   };
 
   const formatDate = (val) => {
@@ -1367,15 +1505,15 @@ function AddUser() {
 
   /* ---------- helpers for the "disable Update if nothing changed" check ---------- */
   const arraysEqualUnordered = (a = [], b = []) => {
-  const normalize = (arr) =>
-    (arr || [])
-      .map((v) => String(v).trim())
-      .filter((v) => v !== "" && v !== "null" && v !== "undefined")
-      .sort();
-  const normA = normalize(a);
-  const normB = normalize(b);
-  if (normA.length !== normB.length) return false;
-  return normA.every((val, idx) => val === normB[idx]);
+    const normalize = (arr) =>
+      (arr || [])
+        .map((v) => String(v).trim())
+        .filter((v) => v !== "" && v !== "null" && v !== "undefined")
+        .sort();
+    const normA = normalize(a);
+    const normB = normalize(b);
+    if (normA.length !== normB.length) return false;
+    return normA.every((val, idx) => val === normB[idx]);
   };
 
   const isUpdateDisabled = () => {
@@ -1387,6 +1525,7 @@ function AddUser() {
 
     const unchanged =
       arraysEqualUnordered(selectedBU, originalData?.selectedBU) &&
+      String(defaultBU) === String(originalData?.defaultBU) &&
       String(selectedType) === String(originalData?.selectedType) &&
       String(selectedDept) === String(originalData?.selectedDept) &&
       String(selectedDesig) === String(originalData?.selectedDesig) &&
@@ -1413,11 +1552,14 @@ function AddUser() {
       arraysEqualUnordered(selectedZones, originalData.selectedZones) &&
       arraysEqualUnordered(selectedRegions, originalData.selectedRegions) &&
       arraysEqualUnordered(selectedAreas, originalData.selectedAreas) &&
-      arraysEqualUnordered(selectedTerritories, originalData.selectedTerritories) &&
+      arraysEqualUnordered(
+        selectedTerritories,
+        originalData.selectedTerritories,
+      ) &&
       arraysEqualUnordered(selectedBeats, originalData.selectedBeats) &&
       String(planSubCutoff) === String(originalData.planSubCutoff) &&
       String(psDay || "") === String(originalData.psDay || "") &&
-      String(planApproval) === String(originalData.planApproval) &&  
+      String(planApproval) === String(originalData.planApproval) &&
       String(repSubCutoff) === String(originalData.repSubCutoff) &&
       String(weekend || "") === String(originalData.weekend || "") &&
       String(rsDay || "") === String(originalData.rsDay || "") &&
@@ -1426,12 +1568,20 @@ function AddUser() {
       String(locationTracking) === String(originalData.locationTracking) &&
       String(selfie) === String(originalData.selfie) &&
       String(attendance) === String(originalData.attendance) &&
-      arraysEqualUnordered(weeklyOff, originalData.weeklyOff) 
+      arraysEqualUnordered(weeklyOff, originalData.weeklyOff);
 
     return unchanged;
   };
 
-  console.log("Selected buieness unit", selectedBU)
+  console.log("Selected buieness unit", selectedBU);
+  console.log({
+    showZone,
+    showRegion,
+    showArea,
+    showTerritory,
+    showBeat,
+    zonesCount: zones.length,
+  });
   return (
     <Layout>
       <Grid container spacing={2} sx={{ padding: "8px" }}>
@@ -1459,6 +1609,28 @@ function AddUser() {
                   </Typography>
                 )}
               </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CommonAppSelect
+                    label={`Primary ${businessLabel}`}
+                    value={defaultBU}
+                    onChange={(e) => setDefaultBU(String(e.target.value))}
+                    options={businessUnits.filter((b) =>
+                      selectedBU.map(String).includes(String(b.id)),
+                    )}
+                    valueKey="id"
+                    labelKey="brand_name"
+                    required={true}
+                    error={Boolean(errors.defaultBU)}
+                  />
+                  {errors.defaultBU && (
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
+                      {errors.defaultBU}
+                    </Typography>
+                  )}
+                </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
                 <CommonAppSelect
@@ -1543,10 +1715,14 @@ function AddUser() {
                   onBlur={(e) => checkEmpCodeDuplicate(e.target.value)}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/^\s+/, "");
-                    setEmployeeCode(onlyText)
+                    setEmployeeCode(onlyText);
                   }}
-                  error={Boolean(errors.employeeCode || duplicateErrors.employeeCode)}
-                  helperText={errors.employeeCode || duplicateErrors.employeeCode}
+                  error={Boolean(
+                    errors.employeeCode || duplicateErrors.employeeCode,
+                  )}
+                  helperText={
+                    errors.employeeCode || duplicateErrors.employeeCode
+                  }
                 />
               </Grid>
 
@@ -1587,14 +1763,20 @@ function AddUser() {
                     label="Mobile"
                     value={mobileNum}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
+                      const value = e.target.value.replace(/\D/g, "");
                       setMobileNum(value);
                       if (useMobile) setUserId(value);
                     }}
                     onBlur={(e) => checkMobileDuplicate(e.target.value)}
-                    inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 10 }}
+                    inputProps={{
+                      inputMode: "numeric",
+                      pattern: "[0-9]*",
+                      maxLength: 10,
+                    }}
                     fullWidth
-                    error={Boolean(errors.mobileNum || duplicateErrors.mobileNum)}
+                    error={Boolean(
+                      errors.mobileNum || duplicateErrors.mobileNum,
+                    )}
                     helperText={errors.mobileNum || duplicateErrors.mobileNum}
                     required={true}
                   />
@@ -1655,7 +1837,7 @@ function AddUser() {
                   value={otherRef}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/^\s+/, "");
-                    setOtherRef(onlyText)
+                    setOtherRef(onlyText);
                   }}
                 />
               </Grid>
@@ -1750,7 +1932,7 @@ function AddUser() {
                   required
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/^\s+/, "");
-                    setAddress(onlyText)
+                    setAddress(onlyText);
                   }}
                   error={Boolean(errors.address)}
                   helperText={errors.address}
@@ -1760,7 +1942,9 @@ function AddUser() {
           </Box>
 
           <Box className="bodyDiv" style={{ marginTop: "10px" }}>
-            <Typography className="headerName">{territoryLabel} Details</Typography>
+            <Typography className="headerName">
+              {territoryLabel} Details
+            </Typography>
             {/* <Divider sx={{ mb: 2 }} /> */}
 
             <Grid container spacing={2}>
@@ -1772,7 +1956,7 @@ function AddUser() {
                   value={hq}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/^\s+/, "");
-                    setHQ(onlyText)
+                    setHQ(onlyText);
                   }}
                   error={Boolean(errors.hq)}
                   helperText={errors.hq}
@@ -1794,7 +1978,9 @@ function AddUser() {
                     required={true}
                   />
                   {errors.zone && (
-                    <Typography sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}>
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
                       {errors.zone}
                     </Typography>
                   )}
@@ -1815,7 +2001,9 @@ function AddUser() {
                     required={true}
                   />
                   {errors.region && (
-                    <Typography sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}>
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
                       {errors.region}
                     </Typography>
                   )}
@@ -1836,7 +2024,9 @@ function AddUser() {
                     required={true}
                   />
                   {errors.area && (
-                    <Typography sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}>
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
                       {errors.area}
                     </Typography>
                   )}
@@ -1857,7 +2047,9 @@ function AddUser() {
                     required={true}
                   />
                   {errors.territory && (
-                    <Typography sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}>
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
                       {errors.territory}
                     </Typography>
                   )}
@@ -1877,7 +2069,9 @@ function AddUser() {
                     required={true}
                   />
                   {errors.beat && (
-                    <Typography sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}>
+                    <Typography
+                      sx={{ color: "#d32f2f", fontSize: "9px", ml: 1 }}
+                    >
                       {errors.beat}
                     </Typography>
                   )}
@@ -1889,7 +2083,8 @@ function AddUser() {
                   label="Report To Type"
                   value={selectedReportType}
                   onChange={(e) => setSelectedReportType(e.target.value)}
-                  options={userTypes.filter(type => type.id !== 2)}
+                  options={reportToTypeOptions}
+                  disabled={!selectedType}
                   valueKey="id"
                   labelKey="client_alias"
                   error={Boolean(errors.reportType)}
@@ -1921,7 +2116,7 @@ function AddUser() {
                 )}
               </Grid>
             </Grid>
-            {(Number(flag) === 0 && [0, 1, 2].includes(Number(accStat))) && (
+            {Number(flag) === 0 && [0, 1, 2].includes(Number(accStat)) && (
               <Button
                 variant="contained"
                 sx={{ mt: 2 }}
@@ -1938,29 +2133,32 @@ function AddUser() {
                   setOpenSaveDialog(true);
                 }}
               >
-              Add User
+                Add User
               </Button>
             )}
-            {(Number(flag) === 1 && Number(accStatus) === 0 && Number(sessionId) !== id && [0, 2].includes(Number(accStat))) && (
-              <Button
-                variant="contained"
-                sx={{ mt: 2 }}
-                disabled={isUpdateDisabled() || modifyLoading}
-                onClick={() => {
-                  if (!validate()) {
-                    setToast({
-                      open: true,
-                      message: "Please fix all mandotory fields",
-                      severity: "error",
-                    });
-                    return;
-                  }
-                  setOpenSaveDialog(true);
-                }}
-              >
-               Update User
-              </Button>
-            )}
+            {Number(flag) === 1 &&
+              Number(accStatus) === 0 &&
+              Number(sessionId) !== id &&
+              [0, 2].includes(Number(accStat)) && (
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2 }}
+                  disabled={isUpdateDisabled() || modifyLoading}
+                  onClick={() => {
+                    if (!validate()) {
+                      setToast({
+                        open: true,
+                        message: "Please fix all mandotory fields",
+                        severity: "error",
+                      });
+                      return;
+                    }
+                    setOpenSaveDialog(true);
+                  }}
+                >
+                  Update User
+                </Button>
+              )}
           </Box>
         </Grid>
 
@@ -1985,7 +2183,7 @@ function AddUser() {
                   value={userId}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/^\s+/, "");
-                    setUserId(onlyText)
+                    setUserId(onlyText);
                   }}
                   error={Boolean(errors.userId)}
                   helperText={errors.userId}
@@ -1993,7 +2191,7 @@ function AddUser() {
                   required
                 />
 
-               <TextField
+                <TextField
                   label="Password"
                   fullWidth
                   size="small"
@@ -2001,7 +2199,7 @@ function AddUser() {
                   value={password}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/\s+/g, "");
-                    setPassword(onlyText)
+                    setPassword(onlyText);
                   }}
                   onBlur={(e) => {
                     const val = e.target.value.trim();
@@ -2010,7 +2208,10 @@ function AddUser() {
                     if (!val) {
                       if (!id) {
                         // ADD USER: password is mandatory
-                        setErrors((prev) => ({ ...prev, password: "Password is required" }));
+                        setErrors((prev) => ({
+                          ...prev,
+                          password: "Password is required",
+                        }));
                       } else {
                         // UPDATE USER: password optional, clear any stale error
                         setErrors((prev) => {
@@ -2046,7 +2247,7 @@ function AddUser() {
                   value={confirmPassword}
                   onChange={(e) => {
                     const onlyText = e.target.value.replace(/\s+/g, "");
-                    setConfirmPassword(onlyText)
+                    setConfirmPassword(onlyText);
                   }}
                   onBlur={(e) => {
                     const val = e.target.value.trim();
@@ -2055,10 +2256,16 @@ function AddUser() {
                     if (!val) {
                       if (!id) {
                         // ADD USER: confirm password is mandatory
-                        setErrors((prev) => ({ ...prev, confirmPassword: "Confirm Password is required" }));
+                        setErrors((prev) => ({
+                          ...prev,
+                          confirmPassword: "Confirm Password is required",
+                        }));
                       } else if (password) {
                         // UPDATE USER: only required if they've started typing a new password
-                        setErrors((prev) => ({ ...prev, confirmPassword: "Both password fields are required" }));
+                        setErrors((prev) => ({
+                          ...prev,
+                          confirmPassword: "Both password fields are required",
+                        }));
                       } else {
                         setErrors((prev) => {
                           const e2 = { ...prev };
@@ -2072,7 +2279,8 @@ function AddUser() {
                     setErrors((prev) => {
                       const e2 = { ...prev };
                       if (password !== val) {
-                        e2.confirmPassword = "Password & Confirm Password does not match";
+                        e2.confirmPassword =
+                          "Password & Confirm Password does not match";
                       } else {
                         delete e2.confirmPassword;
                       }
@@ -2174,7 +2382,7 @@ function AddUser() {
 
               {/* RIGHT SIDE */}
               <Grid size={{ xs: 12, sm: 6 }}>
-               <img
+                <img
                   src={previewImage}
                   onError={(e) => {
                     e.target.onerror = null;
@@ -2291,17 +2499,21 @@ function AddUser() {
                     </Box>
 
                     {/* Deactivate button */}
-                    {(originalData && accStatus === 0 && delFlag === 0 && [0,2].includes(Number(accStat))) && Number(sessionId) !== id  && (
-                      <Button
-                        variant="contained"
-                        color="error"
-                        size="small"
-                        sx={{ float: "right" }}
-                        onClick={handleDeactivateClick}
-                      >
-                        Deactivate
-                      </Button>
-                    )}
+                    {originalData &&
+                      accStatus === 0 &&
+                      delFlag === 0 &&
+                      [0, 2].includes(Number(accStat)) &&
+                      Number(sessionId) !== id && (
+                        <Button
+                          variant="contained"
+                          color="error"
+                          size="small"
+                          sx={{ float: "right" }}
+                          onClick={handleDeactivateClick}
+                        >
+                          Deactivate
+                        </Button>
+                      )}
                   </>
                 )}
               </Grid>
@@ -2317,10 +2529,10 @@ function AddUser() {
                 <CommonAppSelect
                   label="Plan Submission Cutoff"
                   value={planSubCutoff}
-                  onChange={(e) =>{
-                    setPlanSubCutoff(e.target.value)
-                    if(e.target.value !== "3" || e.target.value !== "4"){
-                      setPsDay("")
+                  onChange={(e) => {
+                    setPlanSubCutoff(e.target.value);
+                    if (e.target.value !== "3" || e.target.value !== "4") {
+                      setPsDay("");
                     }
                   }}
                   options={[
@@ -2353,7 +2565,12 @@ function AddUser() {
                       setPsDay(value);
                     }}
                     onBlur={() => {
-                      if (psDay === null || psDay === "" || psDay === undefined || Number(psDay) === 0) {
+                      if (
+                        psDay === null ||
+                        psDay === "" ||
+                        psDay === undefined ||
+                        Number(psDay) === 0
+                      ) {
                         setPsDay("1");
                       }
                     }}
@@ -2385,23 +2602,24 @@ function AddUser() {
 
                     if (val === "3" && weekend.length === 0) {
                       setWeekend([1]);
-                    }
-                    else{
-                      setWeekend("")
+                    } else {
+                      setWeekend("");
                     }
 
                     if (val === "5") {
                       // Restore the original lag day if this field started as "5",
                       // otherwise this is a genuinely new selection → default to 1
                       const restoreValue =
-                        originalData && String(originalData.repSubCutoff) === "5" && originalData.rsDay
+                        originalData &&
+                        String(originalData.repSubCutoff) === "5" &&
+                        originalData.rsDay
                           ? originalData.rsDay
                           : 1;
                       setRsDay(restoreValue);
                     } else {
                       setRsDay("");
                     }
-                }}
+                  }}
                   options={[
                     { id: "0", name: "No Rules" },
                     { id: "1", name: "Real Time" },
@@ -2428,21 +2646,26 @@ function AddUser() {
                 </Grid>
               )}
 
-             {showRsDay && (
+              {showRsDay && (
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Standard Lag Day"
                     value={rsDay}
                     onChange={(e) => {
-                      let val = e.target.value.replace(/\D/g, ''); // digits only
-                      if (val.startsWith('00')) {
+                      let val = e.target.value.replace(/\D/g, ""); // digits only
+                      if (val.startsWith("00")) {
                         setRsDay(1);
                         return;
                       }
                       setRsDay(val === "" ? "" : Number(val));
                     }}
                     onBlur={() => {
-                      if (rsDay === null || rsDay === "" || rsDay === undefined || Number(rsDay) === 0) {
+                      if (
+                        rsDay === null ||
+                        rsDay === "" ||
+                        rsDay === undefined ||
+                        Number(rsDay) === 0
+                      ) {
                         setRsDay(1);
                       }
                     }}

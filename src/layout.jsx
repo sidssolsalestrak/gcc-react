@@ -493,7 +493,8 @@ const Layout = ({ children, breadcrumb = [] }) => {
           "& .MuiDrawer-paper": {
             width: drawerOpen ? 190 : 50,
             boxSizing: "border-box",
-            backgroundColor: "#1a1917",
+            backgroundColor: "#2B2420",
+            // background: "linear-gradient(180deg, #0B1F3A 0%, #16325C 100%)",
             height: "100vh",
             position: "relative",
             overflowY: "auto",
