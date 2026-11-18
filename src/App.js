@@ -88,10 +88,11 @@ import DiseaseMas from "./Masters/AccountProfile/Diseasemas";
 import SocialType from "./Masters/AccountProfile/Socialtype";
 import MarketingInput from "./Masters/main/city/MarketingInput";
 import PharmacyType from "./Masters/main/city/PharmacyType.jsx";
-import Product from "./Masters/main/product/Product.jsx";
 import Marketingtool from "./Masters/main/city/MarketingTool.jsx"
 import UploadNewMrt from "./view/UploadDetailingMRT/uploadNewMRT.js";
 import AddNewDetailingMRT from "./view/UploadDetailingMRT/AddNewDetailingMRT.js";
+import AddProduct from "./Masters/main/product/AddProduct";
+import ViewProduct from "./Masters/main/product/ViewProduct";
 
 function App() {
   const relatedRoutes = {
@@ -233,7 +234,8 @@ function App() {
             <Route path="/masters/dept/:id?" element={<Department />} />
             <Route path="/masters/designation/:id?" element={<Designation />} />
             <Route path="/masters/city_mas/:id?" element={<City />} />
-            <Route path="/masters/prodview/:id?" element={<Product />} />
+           <Route path="/masters/prod_mas/:id?" element={<AddProduct />} />
+            <Route path="/masters/prodview" element={<ViewProduct />} />
             <Route path="/masters/stockist/:id?" element={<Stockist />} />
             <Route
               path="/masters/marketingInput/:id?"
@@ -247,7 +249,6 @@ function App() {
               path="/masters/marketing/:id?"
               element={<Marketingtool />}
             />
-            <Route path="/masters/prodview/:id?" element={<Product />} />
             {/* Admin Panel master routes */}
             <Route
               path="/masters/repTabs/:userId?/:cusId?"
