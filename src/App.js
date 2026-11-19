@@ -101,7 +101,7 @@ function App() {
       "reports/primary_sale_report",
       "/reports/email_process_data",
     ],
-    "masters/prod_mas": ["masters/prodview"],
+    "masters/prodview": ["masters/prodview","/masters/prod_mas"],
     "Users/users_list": ["users/adminUserNew"],
     "customers/AllDoctors": ["customers/editDoctor"],
     upload_closing: ["upload_closing/index"],
