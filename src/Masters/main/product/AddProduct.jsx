@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '../../../layout'
-import { Box, Button, FormControl, Grid, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material'
+import { Box, Button, FormControl, Grid, InputLabel, MenuItem, Select, TextField } from '@mui/material'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ImDownload3 } from "react-icons/im";
 import fetchSubCat from "./fetchSubCat";
@@ -16,12 +16,6 @@ const headContainer = {
     minHeight: '30vh', width: { lg: '97%', md: '97%', sm: '90%', xs: '90%' }
 }
 
-const style = {
-    color: "#026CB6",
-    fontSize: "21px",
-    fontWeight: 500
-}
-
 const menuStyle = {
     PaperProps: {
         style: {
@@ -29,6 +23,9 @@ const menuStyle = {
         }
     }
 }
+
+// master_label_mas.master_id for "Product"
+const PRODUCT_MASTER_ID = 5;
 
 const formFields = {
     productType: "0",
@@ -54,10 +51,16 @@ const validationFields = {
     subCatName: "",
     shortName: "",
     code: "",
+    sortingOrder: "",
     asp: "",
+    cfa: "",
     pts: "",
     ptr: "",
     mrp: "",
+    pcsPerPack: "",
+    pcsPerCarton: "",
+    uom: "",
+    unitConvertion: "",
 }
 
 const AddProduct = () => {
@@ -67,6 +70,10 @@ const AddProduct = () => {
     const [subCat, setSubCat] = useState([]);
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
+
+    // ── dynamic field config from master_label_mas (same shape as the customer form) ──
+    //    fieldConfig["Product Name"] = { label, show, required }
+    const [fieldConfig, setFieldConfig] = useState({});
 
     // labels derived from masterPanel with fallbacks
     const prodLabel = masterPanel["PROD"] || "Product";
@@ -102,11 +109,32 @@ const AddProduct = () => {
         resolveAccStat();
     }, []);
 
+    // ---------------- DYNAMIC FORM ----------------
+    useEffect(() => {
+        const loadDynamicForm = async () => {
+            try {
+                const res = await axios.post("/getmasterLabelMas", { moduletype: PRODUCT_MASTER_ID });
+                let config = {};
+                (res.data?.data || []).forEach((item) => {
+                    config[String(item.label_name).trim()] = {
+                        label: String(item.alias_label_name || item.label_name).trim(),
+                        show: Number(item.label_stat) === 0,
+                        required: Number(item.mandatory_stat) === 1,
+                    };
+                });
+                setFieldConfig(config);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadDynamicForm();
+    }, []);
+
     /*---------- decode params ---------*/
     const decodedId = id ? atob(id) : null;
     /*----------form fields ---------*/
     const [formData, setFormData] = useState(formFields)
-    /*---------- original departmentName name for edit---------*/
+    /*---------- original values for edit---------*/
     const [original, setoriginal] = useState(formFields)
     /*----------form validations ---------*/
     const [validation, setValidations] = useState(validationFields)
@@ -151,56 +179,76 @@ const AddProduct = () => {
         });
     };
 
-    /*----------form validations ---------*/
+    /*----------form validations: only for fields that are shown AND mandatory in master_label_mas ---------*/
     const validations = () => {
         let isValid = true;
-        let newValidations = {
-            productType: "",
-            productName: "",
-            subCatName: "",
-            shortName: "",
-            code: "",
-            asp: "",
-            pts: "",
-            ptr: "",
-            mrp: "",
-        }
-        if (formData.productType < 0) {
-            newValidations.productType = `The ${prodLabel} Type field is required`;
+        let newValidations = { ...validationFields }
+
+        // true when the label is visible and flagged mandatory
+        const isReq = (key) => fieldConfig[key]?.show && fieldConfig[key]?.required;
+        const isEmpty = (v) => v === "" || v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+
+        if (isReq("Product Type") && isEmpty(formData.productType)) {
+            newValidations.productType = `The ${fieldConfig["Product Type"]?.label || `${prodLabel} Type`} field is required`;
             isValid = false;
         }
-        if (!formData.productName || formData.productName.trim() === "") {
-            newValidations.productName = `The ${prodLabel} Name field is required`;
+        if (isReq("Product Name") && isEmpty(formData.productName)) {
+            newValidations.productName = `The ${fieldConfig["Product Name"]?.label || `${prodLabel} Name`} field is required`;
             isValid = false;
         }
-        if (formData.subCatName === "" || formData.subCatName === null || formData.subCatName === undefined) {
-            newValidations.subCatName = `The ${subCatLabel} Name field is required`;
+        if (isReq("Sub Category Name") && isEmpty(formData.subCatName)) {
+            newValidations.subCatName = `The ${fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`} field is required`;
             isValid = false;
         }
-        if (!formData.shortName || formData.shortName.trim() === "") {
-            newValidations.shortName = "The Short Name field is required";
+        if (isReq("Short Name") && isEmpty(formData.shortName)) {
+            newValidations.shortName = `The ${fieldConfig["Short Name"]?.label || "Short Name"} field is required`;
             isValid = false;
         }
-        if (!formData.code || formData.code.trim() === "") {
-            newValidations.code = "The Code field is required";
+        if (isReq("Code") && isEmpty(formData.code)) {
+            newValidations.code = `The ${fieldConfig["Code"]?.label || "Code"} field is required`;
             isValid = false;
         }
-        if (formData.asp === "" || formData.asp === null || formData.asp === undefined) {
-            newValidations.asp = "The Ex Factory Price field is required";
+        if (isReq("Sorting Order") && isEmpty(formData.sortingOrder)) {
+            newValidations.sortingOrder = `The ${fieldConfig["Sorting Order"]?.label || "Sorting Order"} field is required`;
             isValid = false;
         }
-        if (formData.pts === "" || formData.pts === null || formData.pts === undefined) {
-            newValidations.pts = `The ${stkLabel} Price field is required`;
+        if (isReq("Ex Factory (ASP)") && isEmpty(formData.asp)) {
+            newValidations.asp = `The ${fieldConfig["Ex Factory (ASP)"]?.label || "Ex Factory Price"} field is required`;
             isValid = false;
         }
-        if (formData.ptr === "" || formData.ptr === null || formData.ptr === undefined) {
-            newValidations.ptr = "The Retail Price field is required";
+        if (isReq("CFA/ Superstockist") && isEmpty(formData.cfa)) {
+            newValidations.cfa = `The ${fieldConfig["CFA/ Superstockist"]?.label || "CFA/ Superstockist"} field is required`;
             isValid = false;
         }
-        if (formData.mrp === "" || formData.mrp === null || formData.mrp === undefined) {
-            newValidations.mrp = "The MRP Price field is required";
+        if (isReq("Stockist Price (PTS)") && isEmpty(formData.pts)) {
+            newValidations.pts = `The ${fieldConfig["Stockist Price (PTS)"]?.label || `${stkLabel} Price`} field is required`;
             isValid = false;
         }
+        if (isReq("Retail Price (PTR)") && isEmpty(formData.ptr)) {
+            newValidations.ptr = `The ${fieldConfig["Retail Price (PTR)"]?.label || "Retail Price"} field is required`;
+            isValid = false;
+        }
+        if (isReq("MRP") && isEmpty(formData.mrp)) {
+            newValidations.mrp = `The ${fieldConfig["MRP"]?.label || "MRP Price"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Pcs Per Pack") && isEmpty(formData.pcsPerPack)) {
+            newValidations.pcsPerPack = `The ${fieldConfig["Pcs Per Pack"]?.label || "Pcs Per Pack"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Pcs Per Carton") && isEmpty(formData.pcsPerCarton)) {
+            newValidations.pcsPerCarton = `The ${fieldConfig["Pcs Per Carton"]?.label || "Pcs Per Carton"} field is required`;
+            isValid = false;
+        }
+        if (isReq("UOM") && isEmpty(formData.uom)) {
+            newValidations.uom = `The ${fieldConfig["UOM"]?.label || "UOM"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Unit Convertion") && isEmpty(formData.unitConvertion)) {
+            newValidations.unitConvertion = `The ${fieldConfig["Unit Convertion"]?.label || "Unit Convertion"} field is required`;
+            isValid = false;
+        }
+
         setValidations(newValidations);
         return isValid;
     }
@@ -373,125 +421,212 @@ const AddProduct = () => {
                     </Box>
                     <Button onClick={viewClick} sx={{ height: "30px" }} variant="contained" color="primary">View {prodLabel}</Button>
                 </Box>
-                <Grid container spacing={2}>
-                    {/* row 1 */}
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <FormControl fullWidth size="small" required>
-                            <InputLabel id="ProductType">{prodLabel} Type</InputLabel>
-                            <Select id='ProductType' label={`${prodLabel} Type`} error={!!validation.productType}
-                                labelId="ProductType" variant="outlined"
-                                value={formData.productType} onChange={(e) => handleChange("productType", e.target.value)}>
-                                <MenuItem style={{ fontSize: "11px" }} value="0">Existing</MenuItem>
-                                <MenuItem style={{ fontSize: "11px" }} value="1">New Launch</MenuItem>
-                            </Select>
-                            {validation.productType && <span style={{ color: "#d32f2f", fontSize: "12px", padding: "5px 0px 0px 12px" }}>{validation.productType}</span>}
-                        </FormControl>
-                    </Grid>
 
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField value={formData.mrp} onChange={(e) => handleChange("mrp", e.target.value)} error={!!validation.mrp} helperText={validation.mrp ? validation.mrp : null}
-                            type='number' required fullWidth size='small' variant='outlined' label="MRP" placeholder='Enter MRP Price'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField fullWidth type='number' size='small' value={formData.sortingOrder}
-                            onChange={(e) => handleChange("sortingOrder", e.target.value)}
-                            variant='outlined' label="Sorting Order" placeholder='Enter Sorting Order'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    {/* row 2 */}
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <FormControl fullWidth size="small" >
-                            <InputLabel id="SubCategoryName">{subCatLabel} Name*</InputLabel>
-                            <Select id='SubCategoryName' label={`${subCatLabel} Name*`} value={formData.subCatName} MenuProps={menuStyle}
-                                onChange={(e) => handleChange("subCatName", e.target.value)} error={!!validation.subCatName}
-                                labelId="SubCategoryName" variant="outlined">
-                                <MenuItem style={{ fontSize: "11px" }} value="">Select {subCatLabel}</MenuItem>
-                                {subCat?.map((item, index) => (
-                                    <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>{item?.sub_name}</MenuItem>
-                                ))}
-                            </Select>
-                            {validation.subCatName && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.subCatName}</span>}
-                        </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' required fullWidth size='small' value={formData.asp} error={!!validation.asp} helperText={validation.asp ? validation.asp : null}
-                            onChange={(e) => handleChange("asp", e.target.value)} variant='outlined' label="Ex Factory (ASP)" placeholder='Enter Factory Price'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' fullWidth size='small' variant='outlined' value={formData.pcsPerPack}
-                            onChange={(e) => handleChange("pcsPerPack", e.target.value)} label="Pcs Per Pack" placeholder='Enter Pack Value'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    {/* row 3 */}
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField required fullWidth size='small' variant='outlined' label="Code" error={!!validation.code} helperText={validation.code ? validation.code : null}
-                            value={formData.code}
-                            onChange={(e) => {
-                                const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                handleChange("code", onlyText)
-                            }}
-                            placeholder='Enter Code' />
-                    </Grid>
+                {/* Every field is its own Grid item, so a hidden label never leaves a gap */}
+                <Grid container spacing={2} alignItems="flex-start">
 
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' fullWidth size='small' variant='outlined' value={formData.cfa}
-                            onChange={(e) => handleChange("cfa", e.target.value)} label="CFA/ Superstockist" placeholder='Enter Super Stock-list'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' fullWidth size='small' variant='outlined' value={formData.pcsPerCarton}
-                            onChange={(e) => handleChange("pcsPerCarton", e.target.value)} label="Pcs Per Carton" placeholder='Enter Carton Value'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    {/* row 4 */}
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField required fullWidth size='small' value={formData.productName} error={!!validation.productName} helperText={validation.productName ? validation.productName : null}
-                            onChange={(e) => {
-                                const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                handleChange("productName", onlyText)
-                            }} variant='outlined' label={`${prodLabel} Name`} placeholder={`Enter ${prodLabel} Name`} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' required fullWidth size='small' variant='outlined' value={formData.pts} error={!!validation.pts} helperText={validation.pts ? validation.pts : null}
-                            onChange={(e) => handleChange("pts", e.target.value)} label={`${stkLabel} Price (PTS)`} placeholder='Enter Stock Price   '
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField fullWidth size='small' variant='outlined' label="UOM" value={formData.uom}
-                            onChange={(e) => {
-                                const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                handleChange("uom", onlyText)
-                            }} placeholder='Enter UOM' />
-                    </Grid>
-                    {/* row 5 */}
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField required fullWidth size='small' variant='outlined' value={formData.shortName} error={!!validation.shortName} helperText={validation.shortName ? validation.shortName : null}
-                            onChange={(e) => {
-                                const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                handleChange("shortName", onlyText)
-                            }} label="Short Name" placeholder='Enter Short Name' />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' required fullWidth size='small' variant='outlined' value={formData.ptr} error={!!validation.ptr} helperText={validation.ptr ? validation.ptr : null}
-                            onChange={(e) => handleChange("ptr", e.target.value)} label="Retail Price (PTR)" placeholder='Enter Retail Price   '
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
-                        <TextField type='number' fullWidth size='small' variant='outlined' value={formData.unitConvertion}
-                            onChange={(e) => handleChange("unitConvertion", e.target.value)} label="Unit Convertion" placeholder='Enter Unit'
-                            onKeyDown={blockInvalidNumberChars}
-                            autoComplete="off" />
-                    </Grid>
+                    {/* Product Type */}
+                    {fieldConfig["Product Type"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <FormControl fullWidth size="small" required={fieldConfig["Product Type"]?.required}>
+                                <InputLabel id="ProductType">{fieldConfig["Product Type"]?.label || `${prodLabel} Type`}</InputLabel>
+                                <Select id='ProductType' label={fieldConfig["Product Type"]?.label || `${prodLabel} Type`} error={!!validation.productType}
+                                    labelId="ProductType" variant="outlined"
+                                    value={formData.productType} onChange={(e) => handleChange("productType", e.target.value)}>
+                                    <MenuItem style={{ fontSize: "11px" }} value="0">Existing</MenuItem>
+                                    <MenuItem style={{ fontSize: "11px" }} value="1">New Launch</MenuItem>
+                                </Select>
+                                {validation.productType && <span style={{ color: "#d32f2f", fontSize: "12px", padding: "5px 0px 0px 12px" }}>{validation.productType}</span>}
+                            </FormControl>
+                        </Grid>
+                    )}
+
+                    {/* MRP */}
+                    {fieldConfig["MRP"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField value={formData.mrp} onChange={(e) => handleChange("mrp", e.target.value)} error={!!validation.mrp} helperText={validation.mrp ? validation.mrp : null}
+                                type='number' required={fieldConfig["MRP"]?.required} fullWidth size='small' variant='outlined'
+                                label={fieldConfig["MRP"]?.label || "MRP"}
+                                placeholder={`Enter ${fieldConfig["MRP"]?.label || "MRP Price"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Sorting Order */}
+                    {fieldConfig["Sorting Order"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField fullWidth type='number' size='small' value={formData.sortingOrder}
+                                required={fieldConfig["Sorting Order"]?.required}
+                                error={!!validation.sortingOrder} helperText={validation.sortingOrder ? validation.sortingOrder : null}
+                                onChange={(e) => handleChange("sortingOrder", e.target.value)}
+                                variant='outlined'
+                                label={fieldConfig["Sorting Order"]?.label || "Sorting Order"}
+                                placeholder={`Enter ${fieldConfig["Sorting Order"]?.label || "Sorting Order"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Sub Category Name */}
+                    {fieldConfig["Sub Category Name"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <FormControl fullWidth size="small" required={fieldConfig["Sub Category Name"]?.required}>
+                                <InputLabel id="SubCategoryName">{fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`}</InputLabel>
+                                <Select id='SubCategoryName' label={fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`} value={formData.subCatName} MenuProps={menuStyle}
+                                    onChange={(e) => handleChange("subCatName", e.target.value)} error={!!validation.subCatName}
+                                    labelId="SubCategoryName" variant="outlined">
+                                    <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Sub Category Name"]?.label || subCatLabel}</MenuItem>
+                                    {subCat?.map((item, index) => (
+                                        <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>{item?.sub_name}</MenuItem>
+                                    ))}
+                                </Select>
+                                {validation.subCatName && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.subCatName}</span>}
+                            </FormControl>
+                        </Grid>
+                    )}
+
+                    {/* Ex Factory (ASP) */}
+                    {fieldConfig["Ex Factory (ASP)"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Ex Factory (ASP)"]?.required} fullWidth size='small' value={formData.asp} error={!!validation.asp} helperText={validation.asp ? validation.asp : null}
+                                onChange={(e) => handleChange("asp", e.target.value)} variant='outlined'
+                                label={fieldConfig["Ex Factory (ASP)"]?.label || "Ex Factory (ASP)"}
+                                placeholder={`Enter ${fieldConfig["Ex Factory (ASP)"]?.label || "Factory Price"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Pcs Per Pack */}
+                    {fieldConfig["Pcs Per Pack"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Pcs Per Pack"]?.required} fullWidth size='small' variant='outlined' value={formData.pcsPerPack}
+                                error={!!validation.pcsPerPack} helperText={validation.pcsPerPack ? validation.pcsPerPack : null}
+                                onChange={(e) => handleChange("pcsPerPack", e.target.value)}
+                                label={fieldConfig["Pcs Per Pack"]?.label || "Pcs Per Pack"}
+                                placeholder={`Enter ${fieldConfig["Pcs Per Pack"]?.label || "Pack Value"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Code */}
+                    {fieldConfig["Code"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField required={fieldConfig["Code"]?.required} fullWidth size='small' variant='outlined'
+                                label={fieldConfig["Code"]?.label || "Code"}
+                                error={!!validation.code} helperText={validation.code ? validation.code : null}
+                                value={formData.code}
+                                onChange={(e) => {
+                                    const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                    handleChange("code", onlyText)
+                                }}
+                                placeholder={`Enter ${fieldConfig["Code"]?.label || "Code"}`} />
+                        </Grid>
+                    )}
+
+                    {/* CFA / Superstockist */}
+                    {fieldConfig["CFA/ Superstockist"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["CFA/ Superstockist"]?.required} fullWidth size='small' variant='outlined' value={formData.cfa}
+                                error={!!validation.cfa} helperText={validation.cfa ? validation.cfa : null}
+                                onChange={(e) => handleChange("cfa", e.target.value)}
+                                label={fieldConfig["CFA/ Superstockist"]?.label || "CFA/ Superstockist"}
+                                placeholder={`Enter ${fieldConfig["CFA/ Superstockist"]?.label || "Super Stock-list"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Pcs Per Carton */}
+                    {fieldConfig["Pcs Per Carton"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Pcs Per Carton"]?.required} fullWidth size='small' variant='outlined' value={formData.pcsPerCarton}
+                                error={!!validation.pcsPerCarton} helperText={validation.pcsPerCarton ? validation.pcsPerCarton : null}
+                                onChange={(e) => handleChange("pcsPerCarton", e.target.value)}
+                                label={fieldConfig["Pcs Per Carton"]?.label || "Pcs Per Carton"}
+                                placeholder={`Enter ${fieldConfig["Pcs Per Carton"]?.label || "Carton Value"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Product Name */}
+                    {fieldConfig["Product Name"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField required={fieldConfig["Product Name"]?.required} fullWidth size='small' value={formData.productName} error={!!validation.productName} helperText={validation.productName ? validation.productName : null}
+                                onChange={(e) => {
+                                    const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                    handleChange("productName", onlyText)
+                                }} variant='outlined'
+                                label={fieldConfig["Product Name"]?.label || `${prodLabel} Name`}
+                                placeholder={`Enter ${fieldConfig["Product Name"]?.label || `${prodLabel} Name`}`} />
+                        </Grid>
+                    )}
+
+                    {/* Stockist Price (PTS) */}
+                    {fieldConfig["Stockist Price (PTS)"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Stockist Price (PTS)"]?.required} fullWidth size='small' variant='outlined' value={formData.pts} error={!!validation.pts} helperText={validation.pts ? validation.pts : null}
+                                onChange={(e) => handleChange("pts", e.target.value)}
+                                label={fieldConfig["Stockist Price (PTS)"]?.label || `${stkLabel} Price (PTS)`}
+                                placeholder={`Enter ${fieldConfig["Stockist Price (PTS)"]?.label || "Stock Price"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* UOM */}
+                    {fieldConfig["UOM"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField required={fieldConfig["UOM"]?.required} fullWidth size='small' variant='outlined'
+                                label={fieldConfig["UOM"]?.label || "UOM"} value={formData.uom}
+                                error={!!validation.uom} helperText={validation.uom ? validation.uom : null}
+                                onChange={(e) => {
+                                    const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                    handleChange("uom", onlyText)
+                                }} placeholder={`Enter ${fieldConfig["UOM"]?.label || "UOM"}`} />
+                        </Grid>
+                    )}
+
+                    {/* Short Name */}
+                    {fieldConfig["Short Name"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField required={fieldConfig["Short Name"]?.required} fullWidth size='small' variant='outlined' value={formData.shortName} error={!!validation.shortName} helperText={validation.shortName ? validation.shortName : null}
+                                onChange={(e) => {
+                                    const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                    handleChange("shortName", onlyText)
+                                }}
+                                label={fieldConfig["Short Name"]?.label || "Short Name"}
+                                placeholder={`Enter ${fieldConfig["Short Name"]?.label || "Short Name"}`} />
+                        </Grid>
+                    )}
+
+                    {/* Retail Price (PTR) */}
+                    {fieldConfig["Retail Price (PTR)"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Retail Price (PTR)"]?.required} fullWidth size='small' variant='outlined' value={formData.ptr} error={!!validation.ptr} helperText={validation.ptr ? validation.ptr : null}
+                                onChange={(e) => handleChange("ptr", e.target.value)}
+                                label={fieldConfig["Retail Price (PTR)"]?.label || "Retail Price (PTR)"}
+                                placeholder={`Enter ${fieldConfig["Retail Price (PTR)"]?.label || "Retail Price"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
+
+                    {/* Unit Convertion */}
+                    {fieldConfig["Unit Convertion"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                            <TextField type='number' required={fieldConfig["Unit Convertion"]?.required} fullWidth size='small' variant='outlined' value={formData.unitConvertion}
+                                error={!!validation.unitConvertion} helperText={validation.unitConvertion ? validation.unitConvertion : null}
+                                onChange={(e) => handleChange("unitConvertion", e.target.value)}
+                                label={fieldConfig["Unit Convertion"]?.label || "Unit Convertion"}
+                                placeholder={`Enter ${fieldConfig["Unit Convertion"]?.label || "Unit"}`}
+                                onKeyDown={blockInvalidNumberChars}
+                                autoComplete="off" />
+                        </Grid>
+                    )}
                 </Grid>
                 <Box sx={{ display: "flex", justifyContent: { xs: "flex-start", sm: "flex-start", md: "flex-end" } }}>
                     {(!decodedId && [0, 1, 2].includes(Number(accStat))) && (
@@ -504,7 +639,7 @@ const AddProduct = () => {
                     {(decodedId && [0, 2].includes(Number(accStat))) && (
                         <Button onClick={() => showSubmitConfirmation()}
                             startIcon={<ImDownload3 style={{ height: "15px" }} />}
-                            variant='contained' color="primary"  disabled={!isEdited}>
+                            variant='contained' color="primary" disabled={!isEdited}>
                             Update
                         </Button>
                     )}

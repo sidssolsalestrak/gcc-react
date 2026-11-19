@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '../../../layout'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Box, Button, Typography, TextField, FormControl, InputLabel, MenuItem, Select, IconButton } from '@mui/material'
+import { Box, Button, TextField, FormControl, InputLabel, MenuItem, Select, IconButton } from '@mui/material'
 import DataTable from '../../../utils/dataTable';
 import useToast from "../../../utils/useToast";
 import axios from "../../../services/api";
@@ -31,11 +31,8 @@ const headContainer = {
     minHeight: '20vh', width: { lg: '97%', md: '97%', sm: '90%', xs: '90%' }
 }
 
-const style = {
-    color: "#026CB6",
-    fontSize: "21px",
-    fontWeight: 500
-}
+// master_label_mas.master_id for "Product"
+const PRODUCT_MASTER_ID = 5;
 
 const safeAtob = (str) => {
     if (!str) return "";
@@ -63,6 +60,10 @@ const ViewProduct = () => {
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
 
+    // ── dynamic field config from master_label_mas (same shape as the customer form) ──
+    //    fieldConfig["Product Name"] = { label, show, required }
+    const [fieldConfig, setFieldConfig] = useState({});
+
     // labels derived from masterPanel with fallbacks
     const prodLabel = masterPanel["PROD"] || "Product";
     const subCatLabel = masterPanel["PSUB"] || "Sub Category";
@@ -78,24 +79,45 @@ const ViewProduct = () => {
     }, []);
 
     useEffect(() => {
-                const resolveAccStat = async () => {
-                  try {
-                    const res = await axios.post("/getAccStat", {
-                      menu_url: "masters/prod_mas",
-                    });
-            
-                    const stat = res.data?.data?.acc_stat;
-                    if (stat !== null && stat !== undefined) {
-                      localStorage.setItem("acc_stat", stat);
-                      setAccStat(String(stat));
-                    }
-                  } catch (err) {
-                    console.log(err);
-                  }
-                };
-            
-                resolveAccStat();
-        }, []);
+        const resolveAccStat = async () => {
+            try {
+                const res = await axios.post("/getAccStat", {
+                    menu_url: "masters/prod_mas",
+                });
+
+                const stat = res.data?.data?.acc_stat;
+                if (stat !== null && stat !== undefined) {
+                    localStorage.setItem("acc_stat", stat);
+                    setAccStat(String(stat));
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        };
+
+        resolveAccStat();
+    }, []);
+
+    // ---------------- DYNAMIC FORM ----------------
+    useEffect(() => {
+        const loadDynamicForm = async () => {
+            try {
+                const res = await axios.post("/getmasterLabelMas", { moduletype: PRODUCT_MASTER_ID });
+                let config = {};
+                (res.data?.data || []).forEach((item) => {
+                    config[String(item.label_name).trim()] = {
+                        label: String(item.alias_label_name || item.label_name).trim(),
+                        show: Number(item.label_stat) === 0,
+                        required: Number(item.mandatory_stat) === 1,
+                    };
+                });
+                setFieldConfig(config);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadDynamicForm();
+    }, []);
 
     /*---------- decode values  ---------*/
     const decodedProductName = safeAtob(searchParams.get('product'));
@@ -187,75 +209,37 @@ const ViewProduct = () => {
         navigate('/masters/prod_mas')
     }
 
+    /* ---------- data columns: shown only when the label is visible in master_label_mas ----------
+       label    = master_label_mas.label_name that controls the column
+       headerName = fallback header if the alias is empty
+       isPrice  = format as currency                                                         */
+    const dataColumns = [
+        { field: "sub_name", label: "Sub Category Name", headerName: `${subCatLabel} Name` },
+        { field: "code", label: "Code", headerName: "Code" },
+        { field: "prod_type", label: "Product Type", headerName: `${prodLabel} Type` },
+        { field: "prod_name", label: "Product Name", headerName: `${prodLabel} Name` },
+        { field: "fac_price", label: "Ex Factory (ASP)", headerName: "Ex Factory (ASP)", isPrice: true },
+        { field: "wd_price", label: "CFA/ Superstockist", headerName: "CFA/ Superstockist", isPrice: true },
+        { field: "stk_price", label: "Stockist Price (PTS)", headerName: `${stkLabel} Price (PTS)`, isPrice: true },
+        { field: "retail_price", label: "Retail Price (PTR)", headerName: "Retail Price (PTR)", isPrice: true },
+        { field: "mrp_price", label: "MRP", headerName: "MRP", isPrice: true },
+    ].filter((col) => fieldConfig[col.label]?.show)
+
     /* ---------- table columns ---------- */
     const columns = [
-        {
-            field: "index",
-            headerName: "#",
+        { field: "index", headerName: "#", filterable: true },
+        { field: "prodid", headerName: "ID", filterable: true },
+        ...dataColumns.map((col) => ({
+            field: col.field,
+            headerName: fieldConfig[col.label]?.label || col.headerName,
             filterable: true,
-        },
-        {
-            field: "prodid",
-            headerName: "ID",
-            filterable: true,
-        },
-        {
-            field: "sub_name",
-            headerName: `${subCatLabel} Name`,
-            filterable: true,
-        },
-        {
-            field: "code",
-            headerName: "Code",
-            filterable: true,
-        },
-        {
-            field: "prod_type",
-            headerName: `${prodLabel} Type`,
-            filterable: true,
-        },
-        {
-            field: "prod_name",
-            headerName: `${prodLabel} Name`,
-            filterable: true,
-        },
-        {
-            field: "fac_price",
-            headerName: "Ex Factory (ASP)",
-            filterable: true,
-            renderCell: (params) => (
-                <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
-            )
-        },
-        {
-            field: "wd_price",
-            headerName: `${stkLabel} Price (PTS)`,
-            filterable: true,
-            renderCell: (params) => (
-                <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
-            )
-        },
-        {
-            field: "stk_price",
-            headerName: "Retail Price (PTR)",
-            filterable: true,
-            renderCell: (params) => (
-                <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
-            )
-        },
-        {
-            field: "mrp_price",
-            headerName: "MRP",
-            filterable: true,
-            renderCell: (params) => (
-                <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
-            )
-        },
-        {
-            field: "prod_stat",
-            headerName: "STATUS",
-            filterable: true,
-        },
+            ...(col.isPrice && {
+                renderCell: (params) => (
+                    <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
+                )
+            })
+        })),
+        { field: "prod_stat", headerName: "STATUS", filterable: true },
         {
             field: "",
             headerName: "Action",
@@ -300,62 +284,16 @@ const ViewProduct = () => {
         },
     ]
 
+    /* ---------- excel columns: same visibility and headers, no cell renderers ---------- */
     const excelColumns = [
-        {
-            field: "index",
-            headerName: "#",
+        { field: "index", headerName: "#", filterable: true },
+        { field: "prodid", headerName: "ID", filterable: true },
+        ...dataColumns.map((col) => ({
+            field: col.field,
+            headerName: fieldConfig[col.label]?.label || col.headerName,
             filterable: true,
-        },
-        {
-            field: "prodid",
-            headerName: "ID",
-            filterable: true,
-        },
-        {
-            field: "sub_name",
-            headerName: `${subCatLabel} Name`,
-            filterable: true,
-        },
-        {
-            field: "code",
-            headerName: "Code",
-            filterable: true,
-        },
-        {
-            field: "prod_type",
-            headerName: `${prodLabel} Type`,
-            filterable: true,
-        },
-        {
-            field: "prod_name",
-            headerName: `${prodLabel} Name`,
-            filterable: true,
-        },
-        {
-            field: "fac_price",
-            headerName: "Ex Factory (ASP)",
-            filterable: true,
-        },
-        {
-            field: "wd_price",
-            headerName: `${stkLabel} Price (PTS)`,
-            filterable: true,
-        },
-        {
-            field: "stk_price",
-            headerName: "Retail Price (PTR)",
-            filterable: true,
-        },
-        {
-            field: "mrp_price",
-            headerName: "MRP",
-            filterable: true,
-        },
-        {
-            field: "prod_stat",
-            headerName: "STATUS",
-            filterable: true,
-        },
+        })),
+        { field: "prod_stat", headerName: "STATUS", filterable: true },
     ]
 
     /* ---------- table data & sub cat data---------- */
@@ -425,7 +363,6 @@ const ViewProduct = () => {
         try {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             const res = await axios.post(`/prod_delete/${id}`);
-            //console.log("delete res:", res);
             if (res?.data?.success) {
                 showAlert.success(`Successfully Deleted ${prodLabel}`)
                 fetchData({ name: decodedProductName, cat: decodedSubCategory, status: decodedStatus });
@@ -459,28 +396,38 @@ const ViewProduct = () => {
         ]}>
             <Box sx={headContainer}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                    {/* <Typography sx={style}>Product View</Typography> */}
                     <Box>
                         <h1 className="mainTitle">{prodLabel} View</h1>
                     </Box>
                     <Button onClick={addClick} sx={{ height: "30px" }} variant="contained" color="primary">Add New {prodLabel}</Button>
                 </Box>
                 <Box sx={{ display: "flex", alignContent: "center", gap: 2, flexWrap: "wrap" }}>
-                    <TextField value={formData.productName} sx={{ width: "200px" }} size='small' variant='outlined'
-                        label={`${prodLabel} Name`} placeholder={`Enter ${prodLabel} Name`} onChange={(e) => {
-                            const onlyText = e.target.value.replace(/^\s+/, "");
-                            handleChange("productName", onlyText)
-                        }} />
-                    <FormControl sx={{ width: "200px" }} size="small" >
-                        <InputLabel id="SubCategoryName">{subCatLabel} Name</InputLabel>
-                        <Select value={formData.subCatName} id='SubCategoryName' label={`${subCatLabel} Name`} MenuProps={menuStyle}
-                            labelId="SubCategoryName" variant="outlined" onChange={(e) => handleChange("subCatName", e.target.value)}>
-                            <MenuItem style={{ fontSize: "11px" }} value="">Select {subCatLabel}</MenuItem>
-                            {subCat?.map((item, index) => (
-                                <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>{item?.sub_name}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+
+                    {/* Product Name filter */}
+                    {fieldConfig["Product Name"]?.show && (
+                        <TextField value={formData.productName} sx={{ width: "200px" }} size='small' variant='outlined'
+                            label={fieldConfig["Product Name"]?.label || `${prodLabel} Name`}
+                            placeholder={`Enter ${fieldConfig["Product Name"]?.label || `${prodLabel} Name`}`}
+                            onChange={(e) => {
+                                const onlyText = e.target.value.replace(/^\s+/, "");
+                                handleChange("productName", onlyText)
+                            }} />
+                    )}
+
+                    {/* Sub Category filter */}
+                    {fieldConfig["Sub Category Name"]?.show && (
+                        <FormControl sx={{ width: "200px" }} size="small" >
+                            <InputLabel id="SubCategoryName">{fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`}</InputLabel>
+                            <Select value={formData.subCatName} id='SubCategoryName' label={fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`} MenuProps={menuStyle}
+                                labelId="SubCategoryName" variant="outlined" onChange={(e) => handleChange("subCatName", e.target.value)}>
+                                <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Sub Category Name"]?.label || subCatLabel}</MenuItem>
+                                {subCat?.map((item, index) => (
+                                    <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>{item?.sub_name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+
                     <FormControl sx={{ width: "200px" }} size="small" >
                         <InputLabel id="status">Status</InputLabel>
                         <Select value={formData.status} id='status' label="Status"
