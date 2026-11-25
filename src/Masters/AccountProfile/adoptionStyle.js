@@ -94,8 +94,8 @@ export default function AdoptionStyle() {
         try {
             let response = await api.post("/readAdoptionStyle", { id: id })
             let data = response.data.data[0]
-            setAdoptionName(data.adoption_style || "")
-            setHdnAdoptionName(data.adoption_style || "")
+            setAdoptionName(data.current_zone || "")
+            setHdnAdoptionName(data.current_zone || "")
             setAdoptionError(false); setAdoptionErrorMsg("")
             setTabValue(0)
             storeAccStat(response)
@@ -124,7 +124,7 @@ export default function AdoptionStyle() {
         try {
             setModifyLoading(true)
             const payload = {
-                adoption_style: adoptionName.trim()
+               current_zone: adoptionName.trim()
             }
 
             if (decodedEditAdoptionId) {
@@ -213,7 +213,7 @@ export default function AdoptionStyle() {
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
-        { field: "adoption_style", headerName: "Adoption style", filterable: true, sortable: true },
+        { field: "current_zone", headerName: "Adoption style", filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
             renderCell: (row) => (

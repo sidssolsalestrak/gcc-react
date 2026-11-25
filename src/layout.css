@@ -166,6 +166,10 @@
   display: block;
 }
 
+.php-menu.collapsed .treeview-menu .treeview-menu .treeview:hover > .treeview-menu {
+  left: 390px;
+}
+
 .php-menu.collapsed .treeview-menu .treeview > a::after {
   content: "›";
   float: right;
@@ -179,6 +183,17 @@
   > li
   > a {
   padding-left: 15%;
+}
+
+.treeview.dropdownWidth.active
+  > .treeview-menu.open
+  > .treeview.active
+  > .treeview-menu.open
+  > .treeview.active
+  > .treeview-menu.open
+  > li
+  > a {
+  padding-left: 25%;
 }
 
 .menu-active {

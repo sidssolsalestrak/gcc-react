@@ -34,7 +34,6 @@ import WebMenuMaster from "./Masters/AdminPanel/WebMenuMaster";
 import Stockist from "./Masters/main/stockist/Stockist";
 import AwsLogs from "./Masters/AdminPanel/AwsLogs";
 import ApiProcessing from "./Masters/AdminPanel/ApiProcessing";
-import EDetailingMaster from "./Masters/AdminPanel/EDetailingMaster";
 import AccountExtract from "./view/account/AccountExtract";
 import Login from "./view/Login";
 import ForgotPassword from "./view/ForgotPassword";
@@ -83,7 +82,7 @@ import Event from "./Masters/classifymaster/event";
 import Potentialityclass from "./Masters/AccountProfile/potentialityclass";
 import LoyaltyType from "./Masters/AccountProfile/loyaltyType";
 import PracticeType from "./Masters/AccountProfile/practiceType";
-import AdoptionStyle from "./Masters/AccountProfile/adoptionStyle";
+import AdoptionStyle from "./Masters/AccountProfile/adoptionStyle.js";
 import DiseaseMas from "./Masters/AccountProfile/Diseasemas";
 import SocialType from "./Masters/AccountProfile/Socialtype";
 import MarketingInput from "./Masters/main/city/MarketingInput";
@@ -93,6 +92,18 @@ import UploadNewMrt from "./view/UploadDetailingMRT/uploadNewMRT.js";
 import AddNewDetailingMRT from "./view/UploadDetailingMRT/AddNewDetailingMRT.js";
 import AddProduct from "./Masters/main/product/AddProduct";
 import ViewProduct from "./Masters/main/product/ViewProduct";
+import ProductRange from "./Masters/main/productRange/productRange.js";
+import PrincipleSupplier from "./Masters/main/productRange/PrincipleSupplier.js";
+import EventMap from "./Masters/classifymaster/eventMap.js";
+import SampleMap from "./Masters/classifymaster/sampleMap.js";
+import ObjectiveMap from "./Masters/classifymaster/objectiveMap.js";
+import ExpenseDAType from "./Masters/classifymaster/expenseDAtype.js";
+import PromotionalOffers from "./Masters/classifymaster/promotionalOffers.js";
+import PerceptionLadder from "./Masters/AccountProfile/PerceptionLadder.js";
+import Campaign from "./Masters/campaign/Campaign.jsx";
+import PosMaterial from "./Masters/AccountProfile/POSMaterial.js";
+import CompitatorBrands from "./Masters/AccountProfile/CompetitorBrand.js";
+import CustomerType from "./Masters/AdminPanel/customerType.js";
 
 function App() {
   const relatedRoutes = {
@@ -209,8 +220,6 @@ function App() {
               path="/Auth/forgot_paswd/:resetToken"
               element={<ForgotPassword />}
            />
-          <Route path="/masters/disease/:editDiseaseId?"  element={<DiseaseMas />}        />
-          <Route path="/masters/social/:editSocialId?"  element={<SocialType />}  />
           <Route path='/detailing/add_det_mrt' element={<UploadNewMrt />}   />
           <Route path="/detailing/add_new_detailing_mrt/:editId?" element={<AddNewDetailingMRT />}   />
           <Route element={<ProtectedRoute />}>
@@ -282,10 +291,6 @@ function App() {
             <Route
               path="/AdminPanel/ApiProcessing"
               element={<ApiProcessing />}
-            />
-            <Route
-              path="/masters/edetailing/:editEdetailing?"
-              element={<EDetailingMaster />}
             />
             <Route
               path="/customers/AllDoctors/:reqType?/:country?/:user?/:userType?/:cusReq?/:beatId?/:login_id?"
@@ -446,6 +451,20 @@ function App() {
               element={<SampleType />}
             />
             <Route path="/masters/event/:editEventId?" element={<Event />} />
+            <Route path="/masters/principle_supplier/:editid?" element={<PrincipleSupplier />}      />
+            <Route path="/masters/mapevent/:userId?"  element={<EventMap />}      />
+            <Route path="masters/sampleMap/:userId?"  element={<SampleMap />}     />
+            <Route path="masters/objectiveMap/:userId?" element={<ObjectiveMap />}  />
+            <Route path="/Masters/expdatype/:editId?"  element={<ExpenseDAType />} />
+            <Route path="/masters/mer/:editMerId?"  element={<PromotionalOffers />}   />
+            <Route path="/masters/prod_range/:id?"  element={<ProductRange />} />
+            <Route path="/masters/disease/:editDiseaseId?"  element={<DiseaseMas />}  />
+            <Route path="/masters/social/:editSocialId?"  element={<SocialType />}  />
+            <Route path="/masters/perceptionLadder/:editPlId?"  element={<PerceptionLadder />}     />
+            <Route path="/masters/camp/:id?" element={<Campaign />}  />
+            <Route path="/masters/pos/:editPosId?"    element={<PosMaterial />} />
+            <Route path="/masters/compitator/:editCompId?" element={<CompitatorBrands />}  />
+            <Route path="/masters/speciality/:editCusId?"  element={<CustomerType />}      />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
 

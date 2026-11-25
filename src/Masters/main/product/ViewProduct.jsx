@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import Layout from '../../../layout'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Box, Button, TextField, FormControl, InputLabel, MenuItem, Select, IconButton } from '@mui/material'
@@ -15,7 +15,7 @@ import { getMasterPanel } from "../../../services/masterPanelService";
 import FormatCurrency from "../../../utils/formatCurrency";
 import usePageTitle from '../../../services/usePageTitle'
 
-const renderCellStyle = { width: "100%", display: "flex", justifyContent: "center" }
+const renderCellStyle = { width: "100%", display: "flex", justifyContent: "end" }
 
 const menuStyle = {
     PaperProps: {
@@ -31,7 +31,6 @@ const headContainer = {
     minHeight: '20vh', width: { lg: '97%', md: '97%', sm: '90%', xs: '90%' }
 }
 
-// master_label_mas.master_id for "Product"
 const PRODUCT_MASTER_ID = 5;
 
 const safeAtob = (str) => {
@@ -60,11 +59,12 @@ const ViewProduct = () => {
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
 
-    // ── dynamic field config from master_label_mas (same shape as the customer form) ──
-    //    fieldConfig["Product Name"] = { label, show, required }
+    const [princsupoption, setPrincsupoption] = useState([])
+    const [parentprodOption, setParentProdoption] = useState([])
+    const [buOptions, setBuOption] = useState([])
+
     const [fieldConfig, setFieldConfig] = useState({});
 
-    // labels derived from masterPanel with fallbacks
     const prodLabel = masterPanel["PROD"] || "Product";
     const subCatLabel = masterPanel["PSUB"] || "Sub Category";
     const stkLabel = masterPanel["STKS"] || "Stockist";
@@ -98,7 +98,6 @@ const ViewProduct = () => {
         resolveAccStat();
     }, []);
 
-    // ---------------- DYNAMIC FORM ----------------
     useEffect(() => {
         const loadDynamicForm = async () => {
             try {
@@ -119,19 +118,16 @@ const ViewProduct = () => {
         loadDynamicForm();
     }, []);
 
-    /*---------- decode values  ---------*/
     const decodedProductName = safeAtob(searchParams.get('product'));
     const decodedSubCategory = safeAtob(searchParams.get('subcat'));
     const decodedStatus = safeAtob(searchParams.get('status'));
 
-    /*---------- handleChange  ---------*/
     const handleChange = (name, val) => {
         setFormdata((prev) => ({
             ...prev, [name]: val
         }))
     }
 
-    /*---------- re usable toast ---------*/
     const showAlert = useToast();
 
     const [confirmationDialog, setConfirmationDialog] = useState({
@@ -198,34 +194,87 @@ const ViewProduct = () => {
         }
     }
 
-    /* ---------- edit product ---------- */
     const editdata = (row) => {
         let encodeId = row?.row?.prodid
         navigate(`/masters/prod_mas/${btoa(encodeId)}`)
     }
 
-    /* ---------- ADD product ---------- */
     const addClick = () => {
         navigate('/masters/prod_mas')
     }
 
-    /* ---------- data columns: shown only when the label is visible in master_label_mas ----------
-       label    = master_label_mas.label_name that controls the column
-       headerName = fallback header if the alias is empty
-       isPrice  = format as currency                                                         */
+    const fetchPrinciplesup = async () => {
+        try {
+            let response = await axios.post('/getprodmain', { id: 0 })
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setPrincsupoption(data)
+        }
+        catch (err) {
+            console.log("principle supply fetch err", err)
+        }
+    }
+
+    const fetchParentProduct = async () => {
+        try {
+            let response = await axios.post("/getParentProduct")
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setParentProdoption(data)
+        }
+        catch (err) {
+            console.log("parent prod err", err)
+        }
+    }
+
+    const fetchBuData = async () => {
+        try {
+            let response = await axios.post('/getBuisnessUnitData')
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setBuOption(data)
+        }
+        catch (err) {
+            console.log("business fetch Err", err)
+        }
+    }
+
+    useEffect(() => {
+        fetchPrinciplesup();
+        fetchParentProduct();
+        fetchBuData();
+    }, [])
+
+    const tableRows = useMemo(() => tableData.map((row) => ({
+        ...row,
+        bu_name: row.bu_name ||
+            buOptions.find((b) => String(b.id) === String(row.bu_id))?.bu_name || "",
+        prod_main_name: row.prod_main_name ||
+            princsupoption.find((p) => String(p.id) === String(row.prod_main_id))?.prod_main_name || "",
+        parent_name: row.parent_name ||
+            parentprodOption.find((p) => String(p.id) === String(row.parent_id))?.prod_name || "",
+    })), [tableData, buOptions, princsupoption, parentprodOption])
+
     const dataColumns = [
+        { field: "bu_name", label: "Business Unit", headerName: "Business Unit", },
         { field: "sub_name", label: "Sub Category Name", headerName: `${subCatLabel} Name` },
         { field: "code", label: "Code", headerName: "Code" },
+        { field: "prod_code", label: "Short Name", headerName: "Short Name" },
         { field: "prod_type", label: "Product Type", headerName: `${prodLabel} Type` },
         { field: "prod_name", label: "Product Name", headerName: `${prodLabel} Name` },
+        { field: "parent_name", label: "Parent Name", headerName: "Parent Name" },
+        { field: "prod_main_name", label: "Principle Supplier", headerName: "Principle Supplier" },
+        { field: "pack_size", label: "Pack Size", headerName: "Pack Size", type: 'alignright' },
+        { field: "pack_pcs", label: "Pcs Per Pack", headerName: "Pcs Per Pack", type: 'alignright' },
+        { field: "cart_pcs", label: "Pcs Per Carton", headerName: "Pcs Per Carton", type: 'alignright' },
+        { field: "prod_uom", label: "UOM", headerName: "UOM" },
+        { field: "unit_conv", label: "Unit Convertion", headerName: "Unit Convertion", type: 'alignright' },
         { field: "fac_price", label: "Ex Factory (ASP)", headerName: "Ex Factory (ASP)", isPrice: true },
         { field: "wd_price", label: "CFA/ Superstockist", headerName: "CFA/ Superstockist", isPrice: true },
         { field: "stk_price", label: "Stockist Price (PTS)", headerName: `${stkLabel} Price (PTS)`, isPrice: true },
         { field: "retail_price", label: "Retail Price (PTR)", headerName: "Retail Price (PTR)", isPrice: true },
         { field: "mrp_price", label: "MRP", headerName: "MRP", isPrice: true },
+        { field: "tax_per", label: "GST %", headerName: "GST %", type: 'alignright' },
+        { field: "ord_id", label: "Sorting Order", headerName: "Sorting Order", type: 'alignright' },
     ].filter((col) => fieldConfig[col.label]?.show)
 
-    /* ---------- table columns ---------- */
     const columns = [
         { field: "index", headerName: "#", filterable: true },
         { field: "prodid", headerName: "ID", filterable: true },
@@ -233,6 +282,7 @@ const ViewProduct = () => {
             field: col.field,
             headerName: fieldConfig[col.label]?.label || col.headerName,
             filterable: true,
+            ...(col.type && { type: col.type }),
             ...(col.isPrice && {
                 renderCell: (params) => (
                     <span style={renderCellStyle}>{params?.value === 0 ? "-" : FormatCurrency(params?.value)}</span>
@@ -284,7 +334,6 @@ const ViewProduct = () => {
         },
     ]
 
-    /* ---------- excel columns: same visibility and headers, no cell renderers ---------- */
     const excelColumns = [
         { field: "index", headerName: "#", filterable: true },
         { field: "prodid", headerName: "ID", filterable: true },
@@ -292,18 +341,16 @@ const ViewProduct = () => {
             field: col.field,
             headerName: fieldConfig[col.label]?.label || col.headerName,
             filterable: true,
+            ...(col.type && { type: col.type }),
         })),
         { field: "prod_stat", headerName: "STATUS", filterable: true },
     ]
 
-    /* ---------- table data & sub cat data---------- */
     const fetchData = async ({ name, cat, status }) => {
         try {
             setloading(true)
-            //fetch sub data
             await fetchSubCat(setSubCat)
 
-            //table data fetch
             try {
                 let payload = {
                     pd_name: name ? name.trim() : "",
@@ -333,7 +380,6 @@ const ViewProduct = () => {
         }
     }
 
-    /* ---------------- SYNC STATE FROM URL ---------------- */
     useEffect(() => {
         setFormdata({
             productName: decodedProductName || "",
@@ -342,12 +388,10 @@ const ViewProduct = () => {
         })
     }, [decodedProductName, decodedSubCategory, decodedStatus])
 
-    /* ---------- initial render ---------- */
     useEffect(() => {
         fetchData({ name: decodedProductName, cat: decodedSubCategory, status: decodedStatus });
     }, [decodedProductName, decodedSubCategory, decodedStatus])
 
-    /* ---------- on search ---------- */
     const onSearch = () => {
         const params = new URLSearchParams();
         const trimmedProductName = formData.productName.trim();
@@ -357,7 +401,6 @@ const ViewProduct = () => {
         navigate(`/masters/prodview?${params.toString()}`);
     }
 
-    /*---------- delete Product ---------*/
     const deleteCat = async (row) => {
         let id = row?.row?.prodid
         try {
@@ -375,10 +418,9 @@ const ViewProduct = () => {
         }
     }
 
-    /*---------- handle excel download ---------*/
     const download = async () => {
         Download(
-            tableData,
+            tableRows,
             excelColumns,
             "ProductMaster",
             setProgress,
@@ -403,7 +445,6 @@ const ViewProduct = () => {
                 </Box>
                 <Box sx={{ display: "flex", alignContent: "center", gap: 2, flexWrap: "wrap" }}>
 
-                    {/* Product Name filter */}
                     {fieldConfig["Product Name"]?.show && (
                         <TextField value={formData.productName} sx={{ width: "200px" }} size='small' variant='outlined'
                             label={fieldConfig["Product Name"]?.label || `${prodLabel} Name`}
@@ -414,7 +455,6 @@ const ViewProduct = () => {
                             }} />
                     )}
 
-                    {/* Sub Category filter */}
                     {fieldConfig["Sub Category Name"]?.show && (
                         <FormControl sx={{ width: "200px" }} size="small" >
                             <InputLabel id="SubCategoryName">{fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`}</InputLabel>
@@ -441,9 +481,8 @@ const ViewProduct = () => {
                     {progress ? <CircularProgress progress={progress} /> : <Button onClick={download} variant='contained' color="warning">Excel</Button>}
                 </Box>
             </Box>
-            {/* table */}
             <Box sx={headContainer}>
-                <DataTable data={tableData} columns={columns} loading={loading} />
+                <DataTable data={tableRows} columns={columns} loading={loading} />
             </Box>
             <ConfirmationDialog
                 open={confirmationDialog.open}

@@ -43,6 +43,11 @@ const formFields = {
     pcsPerCarton: "",
     uom: "",
     unitConvertion: "",
+    businessUnit: "",
+    packSize: "",
+    principleSupplier: "0",
+    parentName: "0",
+    gstPercent: "",
 }
 
 const validationFields = {
@@ -61,6 +66,11 @@ const validationFields = {
     pcsPerCarton: "",
     uom: "",
     unitConvertion: "",
+    businessUnit: "",
+    packSize: "",
+    principleSupplier: "",
+    parentName: "",
+    gstPercent: "",
 }
 
 const AddProduct = () => {
@@ -79,6 +89,10 @@ const AddProduct = () => {
     const prodLabel = masterPanel["PROD"] || "Product";
     const subCatLabel = masterPanel["PSUB"] || "Sub Category";
     const stkLabel = masterPanel["STKS"] || "Stockist";
+    const [princsupoption,setPrincsupoption]=useState([])
+    const [parentprodOption,setParentProdoption]=useState([])
+    const [buOptions,setBuOption]=useState([])
+
     usePageTitle(prodLabel)
 
     useEffect(() => {
@@ -248,6 +262,26 @@ const AddProduct = () => {
             newValidations.unitConvertion = `The ${fieldConfig["Unit Convertion"]?.label || "Unit Convertion"} field is required`;
             isValid = false;
         }
+        if (isReq("Business Unit") && isEmpty(formData.businessUnit)) {
+            newValidations.businessUnit = `The ${fieldConfig["Business Unit"]?.label || "Business Unit"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Pack Size") && isEmpty(formData.packSize)) {
+            newValidations.packSize = `The ${fieldConfig["Pack Size"]?.label || "Pack Size"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Principle Supplier") && (isEmpty(formData.principleSupplier) || String(formData.principleSupplier) === "0")) {
+            newValidations.principleSupplier = `The ${fieldConfig["Principle Supplier"]?.label || "Principle Supplier"} field is required`;
+            isValid = false;
+        }
+        if (isReq("Parent Name") && (isEmpty(formData.parentName) || String(formData.parentName) === "0")) {
+            newValidations.parentName = `The ${fieldConfig["Parent Name"]?.label || "Parent Name"} field is required`;
+            isValid = false;
+        }
+        if (isReq("GST %") && isEmpty(formData.gstPercent)) {
+            newValidations.gstPercent = `The ${fieldConfig["GST %"]?.label || "GST %"} field is required`;
+            isValid = false;
+        }
 
         setValidations(newValidations);
         return isValid;
@@ -267,6 +301,10 @@ const AddProduct = () => {
     }
 
     /*---------- payload from submit or edit ---------*/
+   const selectedParent = parentprodOption.find(
+    (p) => String(p.id) === String(formData.parentName)
+   );
+
     let payload = {
         prod_type: formData.productType,
         prod_name: formData.productName.trim(),
@@ -283,6 +321,14 @@ const AddProduct = () => {
         cart_pcs: Number(formData.pcsPerCarton) || 0,
         prod_uom: formData.uom.trim(),
         unit_conv: Number(formData.unitConvertion) || 0,
+        bu_id: Number(formData.businessUnit) || 0,
+        pack_size: String(formData.packSize ?? "").trim(),
+        prod_main_id: Number(formData.principleSupplier) || 0,
+        parent_id: Number(formData.parentName) || 0,
+        tax_per: Number(formData.gstPercent) || 0,
+        parent_name: selectedParent?.parent_name ||  "",
+        parent_stat: Number(selectedParent?.parent_stat) || 0,
+        parentCode: selectedParent?.parent_code || ""
     }
     /*---------- form submit ---------*/
     const onSubmit = async () => {
@@ -333,6 +379,12 @@ const AddProduct = () => {
                     pcsPerCarton: zeroToEmpty(data[0]?.cart_pcs),
                     uom: data[0]?.prod_uom || "",
                     unitConvertion: zeroToEmpty(data[0]?.unit_conv),
+                    businessUnit: data[0]?.bu_id ?? "",
+                    packSize: data[0]?.pack_size || "",
+                    principleSupplier: data[0]?.prod_main_id ?? "0",
+                    parentName: data[0]?.parent_id ?? "0",
+                    parentCode: data[0]?.parent_code ?? null,
+                    gstPercent: zeroToEmpty(data[0]?.tax_per),
                 };
                 setFormData(editData);
                 setoriginal(editData);
@@ -381,6 +433,9 @@ const AddProduct = () => {
     /* ---------- initial render ---------- */
     useEffect(() => {
         fetchSubCat(setSubCat);
+        fetchPrinciplesup();
+        fetchParentProduct();
+        fetchBuData()
     }, [])
 
     /*---------- Handle edit params ---------*/
@@ -407,6 +462,45 @@ const AddProduct = () => {
         return String(currentVal ?? "") !== String(originalVal ?? "");
     });
 
+   const fetchPrinciplesup=async()=>{
+    try{
+        let response=await axios.post('/getprodmain',{id:0})
+        let data= Array.isArray(response.data.data)?response.data.data:[]
+        console.log("principle supplier option",data)
+        setPrincsupoption(data)
+
+    }
+    catch(err){
+      console.log("principle supply fetch err",err)
+    }
+
+   }
+
+   const fetchParentProduct=async()=>{
+    try{
+        let response=await axios.post("/getParentProduct")
+        let data=Array.isArray(response.data.data)?response.data.data:[]
+        console.log("parent log data",data)
+        setParentProdoption(data)
+
+    }
+    catch(err){
+        console.log("parent prod err",err)
+    }
+   }
+
+   const fetchBuData=async()=>{
+    try{
+        let response=await axios.post('/getBuisnessUnitData')
+        let data=Array.isArray(response.data.data)?response.data.data:[]
+        setBuOption(data)
+
+    }
+    catch(err){
+        console.log("business fetch Err",err)
+    }
+   }
+
     return (
         <Layout breadcrumb={[
             { label: "Home", path: "/" },
@@ -424,6 +518,42 @@ const AddProduct = () => {
 
                 {/* Every field is its own Grid item, so a hidden label never leaves a gap */}
                 <Grid container spacing={2} alignItems="flex-start">
+                    {/* buisness unit */}
+                    {fieldConfig["Business Unit"]?.show &&(
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                    <FormControl fullWidth size="small" required={fieldConfig["Business Unit"]?.required}>
+                    <InputLabel id="bulabel">{fieldConfig["Business Unit"]?.label}</InputLabel>
+                    <Select labelId='bulabel' label={fieldConfig["Business Unit"]?.label}  MenuProps={menuStyle}
+                        value={formData.businessUnit || ""} onChange={(e) => handleChange("businessUnit", e.target.value)} error={!!validation.businessUnit}>
+                    <MenuItem value="">Select Buisness Unit</MenuItem>
+                    {buOptions.map((val)=>(
+                        <MenuItem value={val.id} key={val.id}>{val.bu_name}</MenuItem>
+                    ))}
+
+                    </Select>
+                    {validation.businessUnit && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.businessUnit}</span>}
+                    </FormControl>
+                     </Grid> 
+                    )}
+                    {fieldConfig["Pack Size"]?.show && (
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                         <TextField 
+                          label={fieldConfig["Pack Size"]?.label}
+                          type='number'
+                          size='small'
+                          fullWidth
+                          required={fieldConfig["Pack Size"]?.required}
+                          value={formData.packSize || ""}
+                          onChange={(e) => handleChange("packSize", e.target.value)}
+                          error={!!validation.packSize}
+                          helperText={validation.packSize ? validation.packSize : null}
+                          onKeyDown={blockInvalidNumberChars}
+                          autoComplete="off"
+                         />
+
+                        </Grid>
+                    )}
+
 
                     {/* Product Type */}
                     {fieldConfig["Product Type"]?.show && (
@@ -436,7 +566,7 @@ const AddProduct = () => {
                                     <MenuItem style={{ fontSize: "11px" }} value="0">Existing</MenuItem>
                                     <MenuItem style={{ fontSize: "11px" }} value="1">New Launch</MenuItem>
                                 </Select>
-                                {validation.productType && <span style={{ color: "#d32f2f", fontSize: "12px", padding: "5px 0px 0px 12px" }}>{validation.productType}</span>}
+                                {validation.productType && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.productType}</span>}
                             </FormControl>
                         </Grid>
                     )}
@@ -626,6 +756,60 @@ const AddProduct = () => {
                                 onKeyDown={blockInvalidNumberChars}
                                 autoComplete="off" />
                         </Grid>
+                    )}
+                    {/* priciple supplier */}
+                    {fieldConfig["Principle Supplier"]?.show && (
+                         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                         <FormControl fullWidth size="small" required={fieldConfig["Principle Supplier"]?.required}>
+                         <InputLabel id="princsupp">{fieldConfig["Principle Supplier"]?.label}</InputLabel>
+                         <Select labelId='princsupp' label={fieldConfig["Principle Supplier"]?.label} MenuProps={menuStyle}
+                             value={formData.principleSupplier ?? "0"} onChange={(e) => handleChange("principleSupplier", e.target.value)} error={!!validation.principleSupplier}>
+                         <MenuItem value="0">Select Principle Supplier</MenuItem>
+                         {princsupoption.map((val)=>(
+                            <MenuItem value={val.id} key={val.id}>{val.prod_main_name}</MenuItem>
+                         ))}
+
+                         </Select>
+                         {validation.principleSupplier && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.principleSupplier}</span>}
+                         </FormControl>
+
+                         </Grid>
+                    )}
+                    {/* parent product */}
+                    {fieldConfig['Parent Name']?.show &&(
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                     <FormControl fullWidth size="small" required={fieldConfig['Parent Name']?.required}>
+                     <InputLabel id="parentname">{fieldConfig['Parent Name']?.label}</InputLabel>
+                     <Select labelId='parentname' label={fieldConfig['Parent Name']?.label} MenuProps={menuStyle}
+                         value={formData.parentName ?? "0"} onChange={(e) => handleChange("parentName", e.target.value)} error={!!validation.parentName}>
+                     <MenuItem value="0">Select Product Name</MenuItem>
+                     {parentprodOption.map((val)=>(
+                        <MenuItem value={val.id} key={val.id}>{val.prod_name}</MenuItem>
+                     ))}
+                     </Select>
+                     {validation.parentName && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.parentName}</span>}
+
+                     </FormControl>
+
+                      
+                      
+                      </Grid>
+                    )}
+                    {/* gst% */}
+                    {fieldConfig['GST %']?.show && (
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}> 
+                      <TextField  
+                       label={fieldConfig['GST %']?.label}
+                       size='small'
+                       fullWidth
+                       required={fieldConfig['GST %']?.required}
+                       value={formData.gstPercent || ""}
+                       onChange={(e) => handleChange("gstPercent", e.target.value)}
+                       error={!!validation.gstPercent}
+                       helperText={validation.gstPercent ? validation.gstPercent : null}
+                      />
+                      
+                      </Grid>  
                     )}
                 </Grid>
                 <Box sx={{ display: "flex", justifyContent: { xs: "flex-start", sm: "flex-start", md: "flex-end" } }}>

@@ -20,14 +20,30 @@ const FILE_UPLOADS = [
 
 const isFile = (v) => typeof File !== "undefined" && v instanceof File;
 
-export function useSubmitCustomer({ form, clinics, brandData = [], competitorBrands = [], competitorRows = [], brandsPrescribed = [], setFieldErrors, setForm, fieldConfig = {} }) {
+const fileSig = (v) => (typeof v === "string" ? v : v ? "new:" + v.name : "");
+
+const clinicSig = (c) => JSON.stringify({
+  repIncharge: c.repIncharge || "0", repInchargePOS: c.repInchargePOS || "0",
+  beat: c.beat || "0", clinicName: c.clinicName || "",
+  contactName: c.contactName || "", contactNo: c.contactNo || "", contactNo2: c.contactNo2 || "",
+  hospitalAttached: c.hospitalAttached || "0", pharmacyAttached: c.pharmacyAttached || "0",
+  meetingDays: [...(c.meetingDays || [])].sort(), meetingTime: c.meetingTime || "",
+  address: c.address || "", city: c.city || "", cityId: String(c.cityId || "0"), zipCode: String(c.zipCode || ""),
+  shipStat: !!c.shipStat, shipAddress: c.shipAddress || "", shipCity: c.shipCity || "",
+  shipCityId: String(c.shipCityId || "0"), shipPincode: String(c.shipPincode || ""),
+  stkId: c.stkId || "0", phChain: c.phChain || "0",
+  potentiality: String(c.potentiality || ""), loyalty: String(c.loyalty || ""), frequency: String(c.frequency || ""),
+  clinicPhoto: fileSig(c.clinicPhoto), letterHead: fileSig(c.letterHead), gstBoard: fileSig(c.gstBoard),
+});
+
+export function useSubmitCustomer({ form, clinics, originalClinics = null, brandData = [], competitorBrands = [], competitorRows = [], brandsPrescribed = [], setFieldErrors, setForm, fieldConfig = {} }) {
   const toast = useToast();
   console.log("form which is Passes to submit",form)
   console.log("clinics which is pass to submit",clinics)
   console.log("potentiality which is pass to submit",brandData)
   console.log("competitor brands passing",competitorBrands)
 
-  const validateAndBuild = () => {
+  const validateAndBuild = (onlyChanged = false) => {
     const newErrors = {};
     const toastMessages = [];
     let hasError = false;
@@ -182,6 +198,21 @@ export function useSubmitCustomer({ form, clinics, brandData = [], competitorBra
         : c.repInchargePOS && c.repInchargePOS !== "0"
     );
 
+    const origMap = new Map((originalClinics || []).map((o) => [String(o.clinicId), o]));
+    const withForm = (c) =>
+      clinics[0] === c
+        ? { ...c, potentiality: form.potentiality, loyalty: form.loyalty, frequency: form.frequency }
+        : c;
+
+    const sentClinics =
+      onlyChanged && originalClinics?.length
+        ? filteredClinics.filter((c) => {
+            const o = origMap.get(String(c.clinicId));
+            if (!c.clinicId || !o) return true;
+            return clinicSig(withForm(c)) !== clinicSig(o);
+          })
+        : filteredClinics;
+
     const noAccountOwner = clinics.some(c =>
   form.cusType === "2"
     ? (!c.repInchargePOS || c.repInchargePOS === "0")
@@ -204,7 +235,7 @@ if (noAccountOwner) {
       newErrors.clinicName="Branch Name is Required";
       hasError = true;
     }
-
+    console.log("only changed doctors",onlyChanged)
     const contactNumErrors = {};
     let hasContactNumError = false;
     clinics.forEach((c, i) => {
@@ -252,7 +283,8 @@ if (noAccountOwner) {
 
     const norm = (v) => String(v ?? "").trim().toLowerCase();
 
-    const customerClinic = filteredClinics.map((c, i) => {
+    const customerClinic = sentClinics.map((c) => {
+      const i = clinics.indexOf(c);
       const sameAsBilling =
         !!c.shipStat ||
         (norm(c.shipAddress) !== "" &&
@@ -397,21 +429,20 @@ if (noAccountOwner) {
       customerClinic,
     };
 
+    doctorDetails._sentClinics = sentClinics;
+
     return doctorDetails;
 };
 
-  const buildRequest = (doctorDetails) => {
-    const filteredClinics = clinics.filter(c =>
-      form.cusType === "1"
-        ? c.repIncharge && c.repIncharge !== "0"
-        : c.repInchargePOS && c.repInchargePOS !== "0"
-    );
-    const hasNewFile = filteredClinics.some(c => FILE_UPLOADS.some(({ key }) => isFile(c[key])));
+
+  const buildRequest = (details) => {
+    const { _sentClinics, ...doctorDetails } = details;
+    const hasNewFile = _sentClinics.some(c => FILE_UPLOADS.some(({ key }) => isFile(c[key])));
     if (!hasNewFile) return { body: { doctorDetails }, config: undefined };
 
     const fd = new FormData();
     fd.append("doctorDetails", JSON.stringify(doctorDetails));
-    filteredClinics.forEach((c, i) => {
+    _sentClinics.forEach((c, i) => {
       FILE_UPLOADS.forEach(({ key, field }) => {
         if (isFile(c[key])) fd.append(`${field}_${i}`, c[key], c[key].name);
       });
@@ -446,11 +477,11 @@ if (noAccountOwner) {
       console.error("Submit error:", err);
       toast.error("An error occurred during submission.");
     }
-  }, [form, clinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
+  }, [form, clinics, originalClinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
 
   const handleUpdate = useCallback(async (cusId, tempId = 0) => {
     try {
-      const doctorDetails = validateAndBuild();
+      const doctorDetails = validateAndBuild(true);
       if (!doctorDetails) return;
 
       doctorDetails.type_flag = 2;
@@ -477,7 +508,7 @@ if (noAccountOwner) {
       console.error("Update error:", err);
       toast.error(err?.response?.data?.message || err.message || "An error occurred during update.");
     }
-  }, [form, clinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
+  }, [form, clinics, originalClinics, brandData, competitorBrands, competitorRows, brandsPrescribed, fieldConfig]);
 
   return { handleSubmit, handleUpdate };
 }

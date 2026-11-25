@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Layout from "../../layout";
 import {
     TextField, Box, Typography, Button, Tabs, Tab,
-    IconButton, Autocomplete
+    IconButton
 } from "@mui/material";
 import api from "../../services/api";
 import useToast from "../../utils/useToast";
@@ -25,18 +25,14 @@ export default function SampleType() {
     const [tabValue, setTabValue] = useState(1)
     const [sampleName, setSampleName] = useState("")
     const [hdnSampleName, setHdnSampleName] = useState("")
-    const [selType, setSelType] = useState("8")
-    const [hdnSelType, setHdnSelType] = useState("8")
 
     const [allSampleData, setAllSampleData] = useState([])
-    const [typeOptions, setTypeOptions] = useState([])
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [accStat, setAccStat] = useState(null)
 
     const [sampleError, setSampleError] = useState(false)
     const [sampleErrorMsg, setSampleErrorMsg] = useState("")
-    const [typeError, setTypeError] = useState(false)
 
     const [confirmationDialog, setConfirmationDialog] = useState({
         open: false, title: "", message: "", onConfirm: null,
@@ -56,7 +52,6 @@ export default function SampleType() {
     }, []);
 
     useEffect(() => {
-        fetchFieldUser()
         fetchAllSampleType()
     }, [])
 
@@ -72,28 +67,13 @@ export default function SampleType() {
 
     const resetFields = () => {
         setSampleName(""); setHdnSampleName("")
-        setSelType("8"); setHdnSelType("8")
         setSampleError(false); setSampleErrorMsg("")
-        setTypeError(false)
     }
 
     const storeAccStat = (response) => {
         setAccStat(response?.data?.acc_stat ?? null)
         if (response?.data?.acc_stat !== null && response?.data?.acc_stat !== undefined) {
             localStorage.setItem("acc_stat", response?.data?.acc_stat)
-        }
-    }
-
-    const fetchFieldUser = async () => {
-        try {
-            let response = await api.post("/fieldUsers")
-            let data = Array.isArray(response.data.data) ? response.data.data : []
-            setTypeOptions(data.map((item) => ({
-                id: String(item.id),
-                label: item.client_alias || ""
-            })))
-        } catch (err) {
-            console.log("fetch field user Err", err)
         }
     }
 
@@ -119,10 +99,7 @@ export default function SampleType() {
             let data = response.data.data[0]
             setSampleName(data.sample_type || "")
             setHdnSampleName(data.sample_type || "")
-            setSelType(String(data.user_type))
-            setHdnSelType(String(data.user_type))
             setSampleError(false); setSampleErrorMsg("")
-            setTypeError(false)
             setTabValue(0)
             storeAccStat(response)
         } catch (err) {
@@ -133,16 +110,10 @@ export default function SampleType() {
     const validateFields = () => {
         let isValid = true
         setSampleError(false); setSampleErrorMsg("")
-        setTypeError(false)
 
         if (!sampleName || sampleName.trim() === "") {
             setSampleError(true)
             setSampleErrorMsg(`The ${sampleLabel} field is required.`)
-            isValid = false
-        }
-
-        if (!typeOptions.some((t) => t.id === String(selType))) {
-            setTypeError(true)
             isValid = false
         }
 
@@ -156,8 +127,7 @@ export default function SampleType() {
         try {
             setModifyLoading(true)
             const payload = {
-                sample_type: sampleName.trim(),
-                user_type: selType
+                sample_type: sampleName.trim()
             }
 
             if (decodedEditSampleId) {
@@ -242,19 +212,11 @@ export default function SampleType() {
         })
     }
 
-    const isUnchanged =
-        String(hdnSelType) === String(selType) &&
-        hdnSampleName.toLowerCase().trim() === sampleName.toLowerCase().trim()
-
-    const tableData = allSampleData.map((item) => ({
-        ...item,
-        type_name: typeOptions.find((t) => t.id === String(item.user_type))?.label || ""
-    }))
+    const isUnchanged = hdnSampleName.toLowerCase().trim() === sampleName.toLowerCase().trim()
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
         { field: "sample_type", headerName: sampleLabel, filterable: true, sortable: true },
-        { field: "type_name", headerName: "Type", filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
             renderCell: (row) => (
@@ -317,28 +279,6 @@ export default function SampleType() {
                                 helperText={sampleError ? sampleErrorMsg : ""}
                             />
 
-                            <Autocomplete
-                                options={typeOptions}
-                                getOptionLabel={(option) => option.label || ""}
-                                value={typeOptions.find((t) => t.id === String(selType)) || null}
-                                onChange={(e, newVal) => {
-                                    setSelType(newVal ? newVal.id : "8")
-                                    if (typeError) setTypeError(false)
-                                }}
-                                disableClearable
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Type"
-                                        size="small"
-                                        required
-                                        error={typeError}
-                                        helperText={typeError ? "The Type field is required." : ""}
-                                    />
-                                )}
-                            />
-
                             {!decodedEditSampleId && [0, 1, 2].includes(Number(accStat)) &&
                                 <Button
                                     variant="contained"
@@ -362,7 +302,7 @@ export default function SampleType() {
 
                     {tabValue === 1 && (
                         <Box sx={{ p: 0 }}>
-                            <DataTable columns={columns} data={tableData} loading={loading} />
+                            <DataTable columns={columns} data={allSampleData} loading={loading} />
                         </Box>
                     )}
                 </Box>

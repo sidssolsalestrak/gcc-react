@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Layout from "../../layout";
 import {
     TextField, Box, Typography, Button, Tabs, Tab,
-    IconButton, Autocomplete
+    IconButton
 } from "@mui/material";
 import api from "../../services/api";
 import useToast from "../../utils/useToast";
@@ -25,18 +25,14 @@ export default function Event() {
     const [tabValue, setTabValue] = useState(1)
     const [eventName, setEventName] = useState("")
     const [hdnEventName, setHdnEventName] = useState("")
-    const [selType, setSelType] = useState("8")
-    const [hdnSelType, setHdnSelType] = useState("8")
 
     const [allEventData, setAllEventData] = useState([])
-    const [typeOptions, setTypeOptions] = useState([])
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [accStat, setAccStat] = useState(null)
 
     const [eventError, setEventError] = useState(false)
     const [eventErrorMsg, setEventErrorMsg] = useState("")
-    const [typeError, setTypeError] = useState(false)
 
     const [confirmationDialog, setConfirmationDialog] = useState({
         open: false, title: "", message: "", onConfirm: null,
@@ -56,7 +52,6 @@ export default function Event() {
     }, []);
 
     useEffect(() => {
-        fetchFieldUser()
         fetchAllEvent()
     }, [])
 
@@ -72,28 +67,13 @@ export default function Event() {
 
     const resetFields = () => {
         setEventName(""); setHdnEventName("")
-        setSelType("8"); setHdnSelType("8")
         setEventError(false); setEventErrorMsg("")
-        setTypeError(false)
     }
 
     const storeAccStat = (response) => {
         setAccStat(response?.data?.acc_stat ?? null)
         if (response?.data?.acc_stat !== null && response?.data?.acc_stat !== undefined) {
             localStorage.setItem("acc_stat", response?.data?.acc_stat)
-        }
-    }
-
-    const fetchFieldUser = async () => {
-        try {
-            let response = await api.post("/fieldUsers")
-            let data = Array.isArray(response.data.data) ? response.data.data : []
-            setTypeOptions(data.map((item) => ({
-                id: String(item.id),
-                label: item.client_alias || ""
-            })))
-        } catch (err) {
-            console.log("fetch field user Err", err)
         }
     }
 
@@ -119,10 +99,7 @@ export default function Event() {
             let data = response.data.data[0]
             setEventName(data.event_type || "")
             setHdnEventName(data.event_type || "")
-            setSelType(String(data.user_type))
-            setHdnSelType(String(data.user_type))
             setEventError(false); setEventErrorMsg("")
-            setTypeError(false)
             setTabValue(0)
             storeAccStat(response)
         } catch (err) {
@@ -133,16 +110,10 @@ export default function Event() {
     const validateFields = () => {
         let isValid = true
         setEventError(false); setEventErrorMsg("")
-        setTypeError(false)
 
         if (!eventName || eventName.trim() === "") {
             setEventError(true)
             setEventErrorMsg(`The ${eventLabel} field is required.`)
-            isValid = false
-        }
-
-        if (!typeOptions.some((t) => t.id === String(selType))) {
-            setTypeError(true)
             isValid = false
         }
 
@@ -156,8 +127,7 @@ export default function Event() {
         try {
             setModifyLoading(true)
             const payload = {
-                event_type: eventName.trim(),
-                user_type: selType
+                event_type: eventName.trim()
             }
 
             if (decodedEditEventId) {
@@ -242,19 +212,11 @@ export default function Event() {
         })
     }
 
-    const isUnchanged =
-        String(hdnSelType) === String(selType) &&
-        hdnEventName.toLowerCase().trim() === eventName.toLowerCase().trim()
-
-    const tableData = allEventData.map((item) => ({
-        ...item,
-        type_name: typeOptions.find((t) => t.id === String(item.user_type))?.label || ""
-    }))
+    const isUnchanged = hdnEventName.toLowerCase().trim() === eventName.toLowerCase().trim()
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
         { field: "event_type", headerName: eventLabel, filterable: true, sortable: true },
-        { field: "type_name", headerName: "Type", filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
             renderCell: (row) => (
@@ -317,28 +279,6 @@ export default function Event() {
                                 helperText={eventError ? eventErrorMsg : ""}
                             />
 
-                            <Autocomplete
-                                options={typeOptions}
-                                getOptionLabel={(option) => option.label || ""}
-                                value={typeOptions.find((t) => t.id === String(selType)) || null}
-                                onChange={(e, newVal) => {
-                                    setSelType(newVal ? newVal.id : "8")
-                                    if (typeError) setTypeError(false)
-                                }}
-                                disableClearable
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Type"
-                                        size="small"
-                                        required
-                                        error={typeError}
-                                        helperText={typeError ? "The Type field is required." : ""}
-                                    />
-                                )}
-                            />
-
                             {!decodedEditEventId && [0, 1, 2].includes(Number(accStat)) &&
                                 <Button
                                     variant="contained"
@@ -362,7 +302,7 @@ export default function Event() {
 
                     {tabValue === 1 && (
                         <Box sx={{ p: 0 }}>
-                            <DataTable columns={columns} data={tableData} loading={loading} />
+                            <DataTable columns={columns} data={allEventData} loading={loading} />
                         </Box>
                     )}
                 </Box>

@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import Layout from '../../../layout'
-import { Box, TextField, Button, IconButton, Typography } from '@mui/material'
+import { Box, TextField, Button, IconButton, Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import Tab from '@mui/material/Tab';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
@@ -17,6 +17,32 @@ import usePageTitle from '../../../services/usePageTitle'
 
 const tabStyle = { fontWeight: 600, fontSize: '1.1rem' }
 
+const menuStyle = {
+    PaperProps: {
+        style: {
+            maxHeight: 200
+        }
+    }
+}
+
+const CAT_MASTER_ID = 3;
+
+const formFields = {
+    businessUnit: "",
+    productRange: "",
+    categoryCode: "",
+    categoryName: "",
+}
+
+const validationFields = {
+    businessUnit: "",
+    productRange: "",
+    categoryCode: "",
+    categoryName: "",
+}
+
+const errStyle = { color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }
+
 const ProductCategory = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -26,6 +52,9 @@ const ProductCategory = () => {
     const [loading, setLoading] = useState(true)
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
+    const [buOption, setBuOption] = useState([])
+    const [rangeOption, setRangeOption] = useState([])
+    const [fieldConfig, setFieldConfig] = useState({});
 
     usePageTitle(masterPanel["PCAT"] || "Product Category")
 
@@ -57,18 +86,37 @@ const ProductCategory = () => {
         resolveAccStat();
     }, []);
 
+    useEffect(() => {
+        const loadDynamicForm = async () => {
+            try {
+                const res = await axios.post("/getmasterLabelMas", { moduletype: CAT_MASTER_ID });
+                let config = {};
+                (res.data?.data || []).forEach((item) => {
+                    config[String(item.label_name).trim()] = {
+                        label: String(item.alias_label_name || item.label_name).trim(),
+                        show: Number(item.label_stat) === 0,
+                        required: Number(item.mandatory_stat) === 1,
+                    };
+                });
+                setFieldConfig(config);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadDynamicForm();
+    }, []);
+
     /*---------- form fields ---------*/
-    const [formData, setFormData] = useState({
-        categoryName: ""
-    })
+    const [formData, setFormData] = useState(formFields)
     /*---------- original cat name for edit---------*/
     const [original, setoriginal] = useState({
-        catname: ""
+        catname: "",
+        businessUnit: "",
+        productRange: "",
+        categoryCode: "",
     })
     /*---------- form validations ---------*/
-    const [validation, setValidations] = useState({
-        categoryName: "",
-    })
+    const [validation, setValidations] = useState(validationFields)
     /*---------- decode params ---------*/
     const decodedId = id ? atob(id) : null;
 
@@ -77,9 +125,7 @@ const ProductCategory = () => {
 
     /*---------- reset validations ---------*/
     const resetValidations = () => {
-        setValidations({
-            categoryName: ""
-        })
+        setValidations(validationFields)
     }
     const [confirmationDialog, setConfirmationDialog] = useState({
         open: false,
@@ -133,21 +179,45 @@ const ProductCategory = () => {
     /*---------- check validations ---------*/
     const validations = () => {
         let isValid = true;
-        const newValidations = {
-            categoryName: ""
-        }
+        const newValidations = { ...validationFields }
 
         const label = masterPanel["PCAT"] || "Product Category";
+        const isReq = (key) => fieldConfig[key]?.show && fieldConfig[key]?.required;
+        const isEmpty = (v) => v === "" || v === null || v === undefined || (typeof v === "string" && v.trim() === "");
 
-        if (!formData.categoryName || formData.categoryName.trim() === "") {
-            newValidations.categoryName = `The ${label} Name field is required`;
+        if (isReq("Business Unit") && isEmpty(formData.businessUnit)) {
+            newValidations.businessUnit = `The ${fieldConfig["Business Unit"]?.label || "Business Unit"} field is required`;
             isValid = false;
-        } else if (formData.categoryName.trim().length < 3) {
-            newValidations.categoryName = `${label} Name must be at least 3 characters`;
+        }
+
+        if (isReq("Product Range") && isEmpty(formData.productRange)) {
+            newValidations.productRange = `The ${fieldConfig["Product Range"]?.label || "Product Range"} field is required`;
             isValid = false;
-        } else if (/[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryName)) {
-            newValidations.categoryName = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
-            isValid = false;
+        }
+
+        if (fieldConfig["Category Code"]?.show) {
+            const codeLabel = fieldConfig["Category Code"]?.label || `${label} Code`;
+            if (isReq("Category Code") && isEmpty(formData.categoryCode)) {
+                newValidations.categoryCode = `The ${codeLabel} field is required`;
+                isValid = false;
+            } else if (!isEmpty(formData.categoryCode) && /[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryCode)) {
+                newValidations.categoryCode = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
+                isValid = false;
+            }
+        }
+
+        if (fieldConfig["Category Name"]?.show) {
+            const nameLabel = fieldConfig["Category Name"]?.label || `${label} Name`;
+            if (isReq("Category Name") && isEmpty(formData.categoryName)) {
+                newValidations.categoryName = `The ${nameLabel} field is required`;
+                isValid = false;
+            } else if (!isEmpty(formData.categoryName) && formData.categoryName.trim().length < 3) {
+                newValidations.categoryName = `${nameLabel} must be at least 3 characters`;
+                isValid = false;
+            } else if (!isEmpty(formData.categoryName) && /[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryName)) {
+                newValidations.categoryName = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
+                isValid = false;
+            }
         }
 
         setValidations(newValidations)
@@ -159,12 +229,15 @@ const ProductCategory = () => {
         try {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             let payload = {
+                bu_id: Number(formData.businessUnit) || 0,
+                range_id: Number(formData.productRange) || 0,
+                cat_code: formData.categoryCode,
                 cat_name: formData.categoryName
             }
             const res = await axios.post("/addCat", payload)
             if (res?.data?.success) {
                 showAlert.success(`${masterPanel["PCAT"] || "Product Category"} Added Successfully`)
-                setFormData({ categoryName: "" });
+                setFormData(formFields);
                 fetchTableData();
                 resetValidations();
             } else {
@@ -173,7 +246,10 @@ const ProductCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
-                setValidations({ categoryName: val?.message || "" });
+                if (val?.type === 1) setValidations(prev => ({ ...prev, businessUnit: val?.message || "" }));
+                else if (val?.type === 2) setValidations(prev => ({ ...prev, productRange: val?.message || "" }));
+                else if (val?.type === 3) setValidations(prev => ({ ...prev, categoryCode: val?.message || "" }));
+                else setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -191,12 +267,15 @@ const ProductCategory = () => {
             let payload = {
                 id: decodedId,
                 hdnCatName: original.catname,
+                bu_id: Number(formData.businessUnit) || 0,
+                range_id: Number(formData.productRange) || 0,
+                cat_code: formData.categoryCode,
                 cat_name: formData.categoryName
             }
             const res = await axios.post("/editCat", payload)
             if (res?.data?.success) {
                 showAlert.success(`${masterPanel["PCAT"] || "Product Category"} Updated Successfully`)
-                setFormData({ categoryName: "" });
+                setFormData(formFields);
                 setValue('1')
                 navigate(`/masters/cat`)
             } else {
@@ -205,7 +284,10 @@ const ProductCategory = () => {
         } catch (error) {
             if (error?.response?.status === 400) {
                 let val = error?.response?.data || "";
-                setValidations({ categoryName: val?.message || "" });
+                if (val?.type === 1) setValidations(prev => ({ ...prev, businessUnit: val?.message || "" }));
+                else if (val?.type === 2) setValidations(prev => ({ ...prev, productRange: val?.message || "" }));
+                else if (val?.type === 3) setValidations(prev => ({ ...prev, categoryCode: val?.message || "" }));
+                else setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -243,15 +325,43 @@ const ProductCategory = () => {
             const data = res?.data?.data || [];
             if (data && data.length > 0) {
                 setFormData({
+                    businessUnit: data[0]?.bu_id ? data[0].bu_id : "",
+                    productRange: data[0]?.brand_id ? data[0].brand_id : "",
+                    categoryCode: data[0]?.cat_code || "",
                     categoryName: data[0]?.cat_name || ""
                 });
                 setoriginal({
-                    catname: data[0]?.cat_name || ""
+                    catname: data[0]?.cat_name || "",
+                    businessUnit: data[0]?.bu_id ? data[0].bu_id : "",
+                    productRange: data[0]?.brand_id ? data[0].brand_id : "",
+                    categoryCode: data[0]?.cat_code || "",
                 })
             }
         } catch (error) {
             console.error(error);
             showAlert.error("failed to edit")
+        }
+    }
+
+    const fetchBuData = async () => {
+        try {
+            let response = await axios.post('/getBuisnessUnitData')
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setBuOption(data)
+        }
+        catch (err) {
+            console.log("business fetch Err", err)
+        }
+    }
+
+    const fetchRangeData = async () => {
+        try {
+            let response = await axios.post('/getProductRange')
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setRangeOption(data)
+        }
+        catch (err) {
+            console.log("range fetch Err", err)
         }
     }
 
@@ -274,39 +384,100 @@ const ProductCategory = () => {
     }
 
     /*---------- table columns---------*/
-    const columns = [
-        {
-            field: "index",
-            headerName: "#",
-            filterable: true,
-            sortable: true
-        },
-        {
-            field: "cat_name",
-            headerName: masterPanel["PCAT"] || "Product Category",
-            filterable: true,
-            sortable: true
-        }, {
-            field: "",
-            headerName: "Action",
-            filterable: true,
-            sortable: true,
-            renderCell: (row) => (
-                <>
-                    {[0, 2].includes(Number(accStat)) && (
-                        <IconButton className='updateBtn' size="small" onClick={() => editdata(row)}>
+    const columns = useMemo(() => {
+        const pcat = masterPanel["PCAT"] || "Product Category";
+        const buLabel = fieldConfig["Business Unit"]?.label || "Business Unit";
+        const rangeLabel = fieldConfig["Product Range"]?.label || "Product Range";
+        const codeLabel = fieldConfig["Category Code"]?.label || `${pcat} Code`;
+        const nameLabel = fieldConfig["Category Name"]?.label || pcat;
+
+        const cols = [
+            {
+                field: "index",
+                headerName: "#",
+                filterable: true,
+                sortable: true,
+            },
+        ];
+
+        // Business Unit column (only if enabled in config)
+        if (fieldConfig["Business Unit"]?.show) {
+            cols.push({
+                field: "bu_name",
+                headerName: buLabel,
+                filterable: true,
+                sortable: true,
+                // fallback in case the list API only returns bu_id
+                renderCell: (params) => {
+                    const row = params?.row ?? params;
+                    return (
+                        buOption.find((b) => String(b.id) === String(row?.bu_id))?.bu_name ||
+                        ""
+                        );
+                },
+            });
+        }
+
+        // Product Range column (only if enabled in config)
+        if (fieldConfig["Product Range"]?.show) {
+            cols.push({
+                field: "brand_name",
+                headerName: rangeLabel,
+                filterable: true,
+                sortable: true,
+                // fallback in case the list API only returns brand_id
+                renderCell: (params) => {
+                    const row = params?.row ?? params;
+                    return (
+                        rangeOption.find((r) => String(r.id) === String(row?.brand_id))?.brand_name ||
+                        ""
+                    );
+                },
+            });
+        }
+
+        // Category Code column (only if enabled in config)
+        if (fieldConfig["Category Code"]?.show) {
+            cols.push({
+                field: "cat_code",
+                headerName: codeLabel,
+                filterable: true,
+                sortable: true,
+            });
+        }
+
+        // Category Name column (only if enabled in config)
+        if (fieldConfig["Category Name"]?.show) {
+            cols.push({
+                field: "cat_name",
+                headerName: nameLabel,
+                filterable: true,
+                sortable: true,
+            });
+        }
+
+        // Action column (permission based)
+        if ([0, 2].includes(Number(accStat))) {
+            cols.push({
+                field: "action",
+                headerName: "Action",
+                filterable: false,
+                sortable: false,
+                renderCell: (row) => (
+                    <>
+                        <IconButton className="updateBtn" size="small" onClick={() => editdata(row)}>
                             <MdOutlineEdit size={15} />
                         </IconButton>
-                    )}
-                    {[0, 2].includes(Number(accStat)) && (
-                        <IconButton className='deleteBtn' size="small" onClick={() => showDeleteConfirmation(row)}>
+                        <IconButton className="deleteBtn" size="small" onClick={() => showDeleteConfirmation(row)}>
                             <DeleteIcon size={15} />
                         </IconButton>
-                    )}
-                </>
-            )
-        },
-    ]
+                    </>
+                ),
+            });
+        }
+
+        return cols;
+    }, [fieldConfig, buOption, rangeOption, accStat, masterPanel]);
 
     /*---------- fetch table data ---------*/
     const fetchTableData = async () => {
@@ -329,13 +500,15 @@ const ProductCategory = () => {
     /*---------- Fetch table data ---------*/
     useEffect(() => {
         fetchTableData();
+        fetchBuData();
+        fetchRangeData();
     }, []);
 
     /*---------- Handle edit params ---------*/
     useEffect(() => {
         if (!decodedId) {
-            setFormData({ categoryName: "" });
-            setoriginal({ catname: "" })
+            setFormData(formFields);
+            setoriginal({ catname: "", businessUnit: "", productRange: "", categoryCode: "" })
             resetValidations();
             return;
         }
@@ -344,7 +517,10 @@ const ProductCategory = () => {
     }, [decodedId]);
 
     const isEdited =
-        formData.categoryName.trim() !== original.catname.trim();
+        formData.categoryName.trim() !== original.catname.trim() ||
+        String(formData.businessUnit ?? "") !== String(original.businessUnit ?? "") ||
+        String(formData.productRange ?? "") !== String(original.productRange ?? "") ||
+        String(formData.categoryCode ?? "").trim() !== String(original.categoryCode ?? "").trim();
 
     return (
         <Layout breadcrumb={[
@@ -377,17 +553,64 @@ const ProductCategory = () => {
                         {/*---------------- Add section--------------- */}
                         <TabPanel value="1">
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <TextField
-                                    value={formData.categoryName}
-                                    onChange={(e) => {
-                                        const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                        formDataChange("categoryName", onlyText)
-                                    }}
-                                    required size='small'
-                                    variant='outlined' label={masterPanel["PCAT"] ? `${masterPanel["PCAT"]} Name` : "Product Category Name"}
-                                    placeholder={masterPanel["PCAT"] ? `Enter ${masterPanel["PCAT"]} Name` : "Enter Product Category Name"}
-                                    error={!!validation.categoryName}
-                                    helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
+                                {fieldConfig["Business Unit"]?.show && (
+                                    <FormControl fullWidth size="small" required={fieldConfig["Business Unit"]?.required}>
+                                        <InputLabel id="bulabel">{fieldConfig["Business Unit"]?.label || "Business Unit"}</InputLabel>
+                                        <Select labelId="bulabel" label={fieldConfig["Business Unit"]?.label || "Business Unit"} MenuProps={menuStyle}
+                                            value={formData.businessUnit || ""} error={!!validation.businessUnit}
+                                            onChange={(e) => formDataChange("businessUnit", e.target.value)}>
+                                            <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Business Unit"]?.label || "Business Unit"}</MenuItem>
+                                            {buOption.map((val) => (
+                                                <MenuItem style={{ fontSize: "11px" }} value={val.id} key={val.id}>{val.bu_name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                        {validation.businessUnit && <span style={errStyle}>{validation.businessUnit}</span>}
+                                    </FormControl>
+                                )}
+                                {fieldConfig["Product Range"]?.show && (
+                                    <FormControl fullWidth size="small" required={fieldConfig["Product Range"]?.required}>
+                                        <InputLabel id="rangelabel">{fieldConfig["Product Range"]?.label || "Product Range"}</InputLabel>
+                                        <Select labelId="rangelabel" label={fieldConfig["Product Range"]?.label || "Product Range"} MenuProps={menuStyle}
+                                            value={formData.productRange || ""} error={!!validation.productRange}
+                                            onChange={(e) => formDataChange("productRange", e.target.value)}>
+                                            <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Product Range"]?.label || "Product Range"}</MenuItem>
+                                            {rangeOption.map((val) => (
+                                                <MenuItem style={{ fontSize: "11px" }} value={val.id} key={val.id}>{val.brand_name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                        {validation.productRange && <span style={errStyle}>{validation.productRange}</span>}
+                                    </FormControl>
+                                )}
+                                {fieldConfig["Category Code"]?.show && (
+                                    <TextField
+                                        value={formData.categoryCode}
+                                        onChange={(e) => {
+                                            const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                            formDataChange("categoryCode", onlyText)
+                                        }}
+                                        required={fieldConfig["Category Code"]?.required}
+                                        size='small'
+                                        variant='outlined'
+                                        label={fieldConfig["Category Code"]?.label || `${masterPanel["PCAT"] || "Product Category"} Code`}
+                                        placeholder={`Enter ${fieldConfig["Category Code"]?.label || `${masterPanel["PCAT"] || "Product Category"} Code`}`}
+                                        error={!!validation.categoryCode}
+                                        helperText={validation.categoryCode && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryCode}</span>} />
+                                )}
+                                {fieldConfig["Category Name"]?.show && (
+                                    <TextField
+                                        value={formData.categoryName}
+                                        onChange={(e) => {
+                                            const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                            formDataChange("categoryName", onlyText)
+                                        }}
+                                        required={fieldConfig["Category Name"]?.required}
+                                        size='small'
+                                        variant='outlined'
+                                        label={fieldConfig["Category Name"]?.label || (masterPanel["PCAT"] ? `${masterPanel["PCAT"]} Name` : "Product Category Name")}
+                                        placeholder={`Enter ${fieldConfig["Category Name"]?.label || (masterPanel["PCAT"] ? `${masterPanel["PCAT"]} Name` : "Product Category Name")}`}
+                                        error={!!validation.categoryName}
+                                        helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
+                                )}
                             </Box>
                             {(!decodedId && [0, 1, 2].includes(Number(accStat))) && (
                                 <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'>Submit</Button>
