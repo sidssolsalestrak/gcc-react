@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import Layout from '../../../layout'
 import { Box, TextField, Button, FormControl, InputLabel, Select, MenuItem, IconButton, Typography } from '@mui/material'
 import Tab from '@mui/material/Tab';
@@ -25,6 +25,26 @@ const menuStyle = {
     }
 }
 
+const SUBCAT_MASTER_ID = 4;
+
+const formFields = {
+    category: "",
+    categoryName: "",
+    businessUnit: "",
+    subcode: "",
+    subcolor: "",
+}
+
+const validationFields = {
+    category: "",
+    categoryName: "",
+    businessUnit: "",
+    subcode: "",
+    subcolor: "",
+}
+
+const errStyle = { color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }
+
 const ProductSubCategory = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -35,8 +55,9 @@ const ProductSubCategory = () => {
     const [loading, setLoading] = useState(true)
     const [masterPanel, setMasterPanel] = useState({});
     const [accStat, setAccStat] = useState(null);
+    const [buOption, setBuOption] = useState([])
+    const [fieldConfig, setFieldConfig] = useState({});
 
-    // labels derived from masterPanel with fallbacks
     const subCatLabel = masterPanel["PSUB"] || "Product Sub Category";
     const catLabel = masterPanel["PCAT"] || "Category";
     usePageTitle(subCatLabel)
@@ -69,34 +90,42 @@ const ProductSubCategory = () => {
         resolveAccStat();
     }, []);
 
-    /*----------form fields ---------*/
-    const [formData, setFormData] = useState({
-        category: "",
-        categoryName: ""
-    })
-    /*----------form validations ---------*/
-    const [validation, setValidations] = useState({
-        category: "",
-        categoryName: ""
-    })
-    /*---------- original values for edit---------*/
+    useEffect(() => {
+        const loadDynamicForm = async () => {
+            try {
+                const res = await axios.post("/getmasterLabelMas", { moduletype: SUBCAT_MASTER_ID });
+                let config = {};
+                (res.data?.data || []).forEach((item) => {
+                    config[String(item.label_name).trim()] = {
+                        label: String(item.alias_label_name || item.label_name).trim(),
+                        show: Number(item.label_stat) === 0,
+                        required: Number(item.mandatory_stat) === 1,
+                    };
+                });
+                setFieldConfig(config);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadDynamicForm();
+    }, []);
+
+    const [formData, setFormData] = useState(formFields)
+    const [validation, setValidations] = useState(validationFields)
     const [original, setoriginal] = useState({
         category: "",
-        catname: ""
+        catname: "",
+        businessUnit: "",
+        subcode: "",
+        subcolor: "",
     })
 
-    /*---------- decode params ---------*/
     const decodedId = id ? atob(id) : null;
 
-    /*---------- re usable toast ---------*/
     const showAlert = useToast();
 
-    /*----------reset validations ---------*/
     const resetValidations = () => {
-        setValidations({
-            category: "",
-            categoryName: ""
-        })
+        setValidations(validationFields)
     }
     const [confirmationDialog, setConfirmationDialog] = useState({
         open: false,
@@ -146,23 +175,53 @@ const ProductSubCategory = () => {
         });
     };
 
-    /*----------check validations ---------*/
     const validations = () => {
         let isValid = true;
-        const newValidations = {
-            category: "",
-            categoryName: ""
-        }
-        if (!formData.category) {
-            newValidations.category = `The ${catLabel} field is required`;
+        const newValidations = { ...validationFields }
+
+        const isReq = (key) => fieldConfig[key]?.show && fieldConfig[key]?.required;
+        const isEmpty = (v) => v === "" || v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+
+        if (isReq("Product Category") && isEmpty(formData.category)) {
+            newValidations.category = `The ${fieldConfig["Product Category"]?.label || catLabel} field is required`;
             isValid = false;
         }
 
-        if (!formData.categoryName || formData.categoryName.trim() === "") {
-            newValidations.categoryName = `The ${subCatLabel} field is required.`;
-            isValid = false;
-        } else if (/[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryName)) {
-            newValidations.categoryName = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
+        if (fieldConfig["Sub Category Code"]?.show) {
+            const codeLabel = fieldConfig["Sub Category Code"]?.label || `${subCatLabel} Code`;
+            if (isReq("Sub Category Code") && isEmpty(formData.subcode)) {
+                newValidations.subcode = `The ${codeLabel} field is required.`;
+                isValid = false;
+            } else if (!isEmpty(formData.subcode) && /[^a-zA-Z0-9_\-\/ ]/.test(formData.subcode)) {
+                newValidations.subcode = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
+                isValid = false;
+            }
+        }
+
+        if (fieldConfig["Sub Category Name"]?.show) {
+            const nameLabel = fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`;
+            if (isReq("Sub Category Name") && isEmpty(formData.categoryName)) {
+                newValidations.categoryName = `The ${nameLabel} field is required.`;
+                isValid = false;
+            } else if (!isEmpty(formData.categoryName) && /[^a-zA-Z0-9_\-\/ ]/.test(formData.categoryName)) {
+                newValidations.categoryName = "Only letters, numbers, underscore, hyphen, forward slash and spaces are allowed";
+                isValid = false;
+            }
+        }
+
+        if (fieldConfig["Sub Category Color"]?.show) {
+            const colorLabel = fieldConfig["Sub Category Color"]?.label || `${subCatLabel} Color`;
+            if (isReq("Sub Category Color") && isEmpty(formData.subcolor)) {
+                newValidations.subcolor = `The ${colorLabel} field is required.`;
+                isValid = false;
+            } else if (!isEmpty(formData.subcolor) && !/^#[0-9a-fA-F]{6}$/.test(formData.subcolor)) {
+                newValidations.subcolor = "Invalid color";
+                isValid = false;
+            }
+        }
+
+        if (isReq("Business Unit") && isEmpty(formData.businessUnit)) {
+            newValidations.businessUnit = `The ${fieldConfig["Business Unit"]?.label || "Business Unit"} field is required`;
             isValid = false;
         }
 
@@ -170,7 +229,6 @@ const ProductSubCategory = () => {
         return isValid;
     }
 
-    /*----------for formdata onchange---------*/
     const formDataChange = (field, val) => {
         setFormData((prev) => ({
             ...prev,
@@ -178,7 +236,6 @@ const ProductSubCategory = () => {
         }))
     }
 
-    /*----------for tab change---------*/
     const handleChange = useCallback((event, newValue) => {
         setValue(newValue);
     }, []);
@@ -189,18 +246,20 @@ const ProductSubCategory = () => {
         navigate(`/masters/catSub/${btoa(encodeId)}`)
     }
 
-    /*---------- form submit ---------*/
     const onSubmit = async () => {
         try {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
             let payload = {
                 cat_id: formData.category,
-                sub_name: formData.categoryName
+                sub_name: formData.categoryName,
+                sub_code: formData.subcode,
+                sub_color: formData.subcolor,
+                bu_id: Number(formData.businessUnit) || 0,
             }
             const res = await axios.post("/addCatSub", payload)
             if (res?.data?.success) {
                 showAlert.success(`${subCatLabel} Added Successfully`)
-                setFormData({ category: "", categoryName: "" });
+                setFormData(formFields);
                 fetchTableData();
                 resetValidations();
             } else {
@@ -211,6 +270,9 @@ const ProductSubCategory = () => {
                 let val = error?.response?.data || "";
                 if (val?.type === 1) setValidations(prev => ({ ...prev, category: val?.message || "" }));
                 else if (val?.type === 2) setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
+                else if (val?.type === 3) setValidations(prev => ({ ...prev, businessUnit: val?.message || "" }));
+                else if (val?.type === 4) setValidations(prev => ({ ...prev, subcode: val?.message || "" }));
+                else if (val?.type === 5) setValidations(prev => ({ ...prev, subcolor: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -221,7 +283,6 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*---------- form edit submit ---------*/
     const onEdit = async () => {
         try {
             setConfirmationDialog(prev => ({ ...prev, loading: true }));
@@ -229,12 +290,15 @@ const ProductSubCategory = () => {
                 id: decodedId,
                 cat_id: formData.category,
                 hdnSubName: original.catname,
-                sub_name: formData.categoryName
+                sub_name: formData.categoryName,
+                sub_code: formData.subcode,
+                sub_color: formData.subcolor,
+                bu_id: Number(formData.businessUnit) || 0,
             }
             const res = await axios.post("/subCatEdit", payload)
             if (res?.data?.success) {
                 showAlert.success(`${subCatLabel} Updated Successfully`)
-                setFormData({ category: "", categoryName: "" });
+                setFormData(formFields);
                 setValue('1')
                 navigate(`/masters/catSub`)
             } else {
@@ -245,6 +309,9 @@ const ProductSubCategory = () => {
                 let val = error?.response?.data || "";
                 if (val?.type === 1) setValidations(prev => ({ ...prev, category: val?.message || "" }));
                 else if (val?.type === 2) setValidations(prev => ({ ...prev, categoryName: val?.message || "" }));
+                else if (val?.type === 3) setValidations(prev => ({ ...prev, businessUnit: val?.message || "" }));
+                else if (val?.type === 4) setValidations(prev => ({ ...prev, subcode: val?.message || "" }));
+                else if (val?.type === 5) setValidations(prev => ({ ...prev, subcolor: val?.message || "" }));
                 showAlert.error(val?.message || "Validation failed")
             } else {
                 console.error(error);
@@ -256,19 +323,25 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*---------- get data for edit ---------*/
     const getEditData = async (decodedId) => {
         try {
             const res = await axios.post("/editCatSub", { id: decodedId })
             const data = res?.data?.data || [];
             if (data && data.length > 0) {
+                const bu = data[0]?.bu_id ? data[0].bu_id : "";
                 setFormData({
                     category: data[0]?.cat_id || "",
-                    categoryName: data[0]?.sub_name || ""
+                    categoryName: data[0]?.sub_name || "",
+                    businessUnit: bu,
+                    subcode: data[0]?.sub_code || "",
+                    subcolor: data[0]?.sub_color || "",
                 });
                 setoriginal({
                     category: data[0]?.cat_id || "",
-                    catname: data[0]?.sub_name || ""
+                    catname: data[0]?.sub_name || "",
+                    businessUnit: bu,
+                    subcode: data[0]?.sub_code || "",
+                    subcolor: data[0]?.sub_color || "",
                 })
             }
         } catch (error) {
@@ -277,7 +350,17 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*---------- delete cat ---------*/
+    const fetchBuData = async () => {
+        try {
+            let response = await axios.post('/getBuisnessUnitData')
+            let data = Array.isArray(response.data.data) ? response.data.data : []
+            setBuOption(data)
+        }
+        catch (err) {
+            console.log("business fetch Err", err)
+        }
+    }
+
     const deleteCat = async (row) => {
         let id = row?.row?.id
         try {
@@ -295,48 +378,109 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*----------table columns---------*/
-    const columns = [
-        {
-            field: "index",
-            headerName: "#",
-            filterable: true,
-            sortable: true,
-        },
-        {
-            field: "cat_name",
-            headerName: `${catLabel} Name`,
-            filterable: true,
-            sortable: true,
-        },
-        {
-            field: "sub_name",
-            headerName: `${subCatLabel} Name`,
-            filterable: true,
-            sortable: true,
-        }, {
-            field: "",
-            headerName: "Action",
-            filterable: true,
-            sortable: true,
-            renderCell: (row) => (
-                <>
-                    {[0, 2].includes(Number(accStat)) && (
-                        <IconButton className='updateBtn' size="small" onClick={() => editdata(row)}>
+    const columns = useMemo(() => {
+        const cols = [
+            {
+                field: "index",
+                headerName: "#",
+                filterable: true,
+                sortable: true,
+            },
+        ];
+
+        // Business Unit column (only if enabled in config)
+        if (fieldConfig["Business Unit"]?.show) {
+            cols.push({
+                field: "bu_name",
+                headerName: fieldConfig["Business Unit"]?.label || "Business Unit",
+                filterable: true,
+                sortable: true,
+                width:30,
+                // fallback in case the list API only returns bu_id
+                renderCell: (params) => {
+                    const row = params?.row ?? params;
+                    return (
+                        buOption.find((b) => String(b.id) === String(row?.bu_id))?.bu_name ||
+                        ""
+                    );
+                },
+            });
+        }
+
+        // Product Category column (only if enabled in config)
+        if (fieldConfig["Product Category"]?.show) {
+            cols.push({
+                field: "cat_name",
+                headerName: `${fieldConfig["Product Category"]?.label || catLabel} Name`,
+                filterable: true,
+                sortable: true,
+                 width:30,
+            });
+        }
+
+        // Sub Category Code column (only if enabled in config)
+        if (fieldConfig["Sub Category Code"]?.show) {
+            cols.push({
+                field: "sub_code",
+                headerName: fieldConfig["Sub Category Code"]?.label || `${subCatLabel} Code`,
+                filterable: true,
+                sortable: true,
+                width:30,
+            });
+        }
+
+        // Sub Category Name column (only if enabled in config)
+        if (fieldConfig["Sub Category Name"]?.show) {
+            cols.push({
+                field: "sub_name",
+                headerName: fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`,
+                filterable: true,
+                sortable: true,
+            });
+        }
+
+        // Sub Category Color column (only if enabled in config)
+        if (fieldConfig["Sub Category Color"]?.show) {
+            cols.push({
+                field: "sub_color",
+                headerName: fieldConfig["Sub Category Color"]?.label || `${subCatLabel} Color`,
+                filterable: true,
+                sortable: true,
+            });
+        }
+
+        // Action column (permission based)
+        if ([0, 2].includes(Number(accStat))) {
+            cols.push({
+                field: "action",
+                headerName: "Action",
+                filterable: false,
+                sortable: false,
+                renderCell: (row) => (
+                    <>
+                        <IconButton className="updateBtn" size="small" onClick={() => editdata(row)}>
                             <MdOutlineEdit size={15} />
                         </IconButton>
-                    )}
-                    {[0, 2].includes(Number(accStat)) && (
-                        <IconButton className='deleteBtn' size="small" onClick={() => showDeleteConfirmation(row)}>
+                        <IconButton className="deleteBtn" size="small" onClick={() => showDeleteConfirmation(row)}>
                             <DeleteIcon size={15} />
                         </IconButton>
-                    )}
-                </>
-            )
-        },
-    ]
+                    </>
+                ),
+            });
+        }
 
-    /*---------- fetch category ---------*/
+        return cols;
+    }, [fieldConfig, buOption, accStat, subCatLabel, catLabel]);
+
+    // width grows with the number of visible data columns (min 60%, max 100% on lg)
+    const dataColumnCount = columns.filter(
+        (c) => c.field !== "index" && c.field !== "action"
+    ).length;
+
+    const lgWidth = value === '2'
+        ? `${Math.min(100, Math.max(60, 40 + dataColumnCount * 10))}%`
+        : '60%';
+
     const fetchCategory = async () => {
         try {
             const res = await axios.post("/getCategory");
@@ -348,7 +492,6 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*---------- fetch table data ---------*/
     const fetchTableData = async () => {
         try {
             setLoading(true)
@@ -366,17 +509,16 @@ const ProductSubCategory = () => {
         }
     }
 
-    /*---------- Fetch table data ---------*/
     useEffect(() => {
         fetchTableData();
         fetchCategory();
+        fetchBuData();
     }, []);
 
-    /*---------- Handle edit params ---------*/
     useEffect(() => {
         if (!decodedId) {
-            setFormData({ category: "", categoryName: "" });
-            setoriginal({ category: "", catname: "" })
+            setFormData(formFields);
+            setoriginal({ category: "", catname: "", businessUnit: "", subcode: "", subcolor: "" })
             resetValidations();
             return;
         }
@@ -386,7 +528,10 @@ const ProductSubCategory = () => {
 
     const isEdited =
         String(formData.category) !== String(original.category) ||
-        formData.categoryName.trim() !== original.catname.trim();
+        formData.categoryName.trim() !== original.catname.trim() ||
+        String(formData.businessUnit ?? "") !== String(original.businessUnit ?? "") ||
+        String(formData.subcode ?? "").trim() !== String(original.subcode ?? "").trim() ||
+        String(formData.subcolor ?? "") !== String(original.subcolor ?? "");
 
     return (
         <Layout breadcrumb={[
@@ -405,7 +550,7 @@ const ProductSubCategory = () => {
                 <Box>
                     <h1 className="mainTitle">{subCatLabel}</h1>
                 </Box>
-                <Box sx={{ backgroundColor: 'white', borderRadius: '6px', minHeight: '30vh', width: { lg: '60%', md: '80%', sm: '90%', xs: '90%' } }}>
+                <Box sx={{ backgroundColor: 'white', borderRadius: '6px', minHeight: '30vh', width: { lg: lgWidth, md: '90%', sm: '98%', xs: '98%' } }}>
                     <TabContext value={value}>
                         {!decodedId ?
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -416,35 +561,81 @@ const ProductSubCategory = () => {
                             </Box> :
                             <Typography sx={{ px: 3, mt: 3, color: '#212121', fontSize: '18px' }}>Edit {subCatLabel}</Typography>
                         }
-                        {/*---------------- Add section--------------- */}
                         <TabPanel value="1">
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <FormControl fullWidth size="small" required>
-                                    <InputLabel id="Category">{catLabel}</InputLabel>
-                                    <Select id='Category-select' label={catLabel} labelId="Category" variant="outlined"
-                                        value={formData.category} error={!!validation.category} MenuProps={menuStyle}
-                                        onChange={(e) => formDataChange("category", e.target.value)}
-                                    >
-                                        <MenuItem style={{ fontSize: "11px" }} value="">Select {catLabel}</MenuItem>
-                                        {catData?.map((item, index) => (
-                                            <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>
-                                                {item?.cat_name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                    {validation.category && <span style={{ color: "#d32f2f", fontSize: "9px", padding: "5px 0px 0px 12px" }}>{validation.category}</span>}
-                                </FormControl>
+                                {fieldConfig["Business Unit"]?.show && (
+                                    <FormControl fullWidth size="small" required={fieldConfig["Business Unit"]?.required}>
+                                        <InputLabel id="bulabel">{fieldConfig["Business Unit"]?.label || "Business Unit"}</InputLabel>
+                                        <Select labelId="bulabel" label={fieldConfig["Business Unit"]?.label || "Business Unit"} MenuProps={menuStyle}
+                                            value={formData.businessUnit || ""} error={!!validation.businessUnit}
+                                            onChange={(e) => formDataChange("businessUnit", e.target.value)}>
+                                            <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Business Unit"]?.label || "Business Unit"}</MenuItem>
+                                            {buOption.map((val) => (
+                                                <MenuItem style={{ fontSize: "11px" }} value={val.id} key={val.id}>{val.bu_name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                        {validation.businessUnit && <span style={errStyle}>{validation.businessUnit}</span>}
+                                    </FormControl>
+                                )}
+                                {fieldConfig["Product Category"]?.show && (
+                                    <FormControl fullWidth size="small" required={fieldConfig["Product Category"]?.required}>
+                                        <InputLabel id="Category">{fieldConfig["Product Category"]?.label || catLabel}</InputLabel>
+                                        <Select id='Category-select' label={fieldConfig["Product Category"]?.label || catLabel} labelId="Category" variant="outlined"
+                                            value={formData.category} error={!!validation.category} MenuProps={menuStyle}
+                                            onChange={(e) => formDataChange("category", e.target.value)}
+                                        >
+                                            <MenuItem style={{ fontSize: "11px" }} value="">Select {fieldConfig["Product Category"]?.label || catLabel}</MenuItem>
+                                            {catData?.map((item, index) => (
+                                                <MenuItem key={item.id || index} style={{ fontSize: "11px" }} value={item.id}>
+                                                    {item?.cat_name}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                        {validation.category && <span style={errStyle}>{validation.category}</span>}
+                                    </FormControl>
+                                )}
+                                {fieldConfig["Sub Category Code"]?.show && (
+                                    <TextField
+                                        value={formData.subcode}
+                                        onChange={(e) => {
+                                            const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                            formDataChange("subcode", onlyText)
+                                        }}
+                                        required={fieldConfig["Sub Category Code"]?.required}
+                                        size='small'
+                                        variant='outlined'
+                                        label={fieldConfig["Sub Category Code"]?.label || `${subCatLabel} Code`}
+                                        placeholder={`Enter ${fieldConfig["Sub Category Code"]?.label || `${subCatLabel} Code`}`}
+                                        error={!!validation.subcode}
+                                        helperText={validation.subcode && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.subcode}</span>} />
+                                )}
+                                {fieldConfig["Sub Category Name"]?.show && (
+                                    <TextField
+                                        value={formData.categoryName}
+                                        onChange={(e) => {
+                                            const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
+                                            formDataChange("categoryName", onlyText)
+                                        }}
+                                        required={fieldConfig["Sub Category Name"]?.required}
+                                        size='small'
+                                        variant='outlined'
+                                        label={fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`}
+                                        placeholder={`Enter ${fieldConfig["Sub Category Name"]?.label || `${subCatLabel} Name`}`}
+                                        error={!!validation.categoryName}
+                                        helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
+                                )}
+                                {fieldConfig["Sub Category Color"]?.show && (
                                 <TextField
-                                    value={formData.categoryName}
-                                    onChange={(e) => {
-                                        const onlyText = e.target.value.replace(/[^a-zA-Z0-9_\-\/ ]/g, "").replace(/^\s+/, "");
-                                        formDataChange("categoryName", onlyText)
-                                    }}
-                                    required size='small'
-                                    variant='outlined' label={`${subCatLabel} Name`}
-                                    placeholder={`Enter ${subCatLabel} Name`}
-                                    error={!!validation.categoryName}
-                                    helperText={validation.categoryName && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.categoryName}</span>} />
+                                    value={formData.subcolor}
+                                    onChange={(e) => formDataChange("subcolor", e.target.value)}
+                                    required={fieldConfig["Sub Category Color"]?.required}
+                                    size='small'
+                                    variant='outlined'
+                                    label={fieldConfig["Sub Category Color"]?.label || `${subCatLabel} Color`}
+                                    InputLabelProps={{ shrink: true }}
+                                    error={!!validation.subcolor}
+                                    helperText={validation.subcolor && <span style={{ color: "#d32f2f", fontSize: "9px" }}>{validation.subcolor}</span>} />
+                             )}
                             </Box>
                             {(!decodedId && [0, 1, 2].includes(Number(accStat))) && (
                                 <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained'>Submit</Button>
@@ -453,7 +644,6 @@ const ProductSubCategory = () => {
                                 <Button onClick={() => showSubmitConfirmation()} sx={{ mt: 2, textTransform: 'none' }} color="primary" variant='contained' disabled={!isEdited}>Update</Button>
                             )}
                         </TabPanel>
-                        {/*---------------- View section--------------- */}
                         <TabPanel value="2" sx={{ padding: 0 }}>
                             <DataTable
                                 columns={columns}

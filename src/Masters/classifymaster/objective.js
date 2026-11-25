@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Layout from "../../layout";
 import {
     TextField, Box, Typography, Button, Tabs, Tab,
-    IconButton, Autocomplete
+    IconButton
 } from "@mui/material";
 import api from "../../services/api";
 import useToast from "../../utils/useToast";
@@ -23,18 +23,14 @@ export default function Objective() {
     const location = useLocation()
 
     const [tabValue, setTabValue] = useState(1)
-    const [selType, setSelType] = useState("0")
-    const [hdnSelType, setHdnSelType] = useState("0")
     const [objName, setObjName] = useState("")
     const [hdnObjName, setHdnObjName] = useState("")
 
     const [allObjData, setAllObjData] = useState([])
-    const [typeOptions, setTypeOptions] = useState([{ id: "0", label: "All" }])
     const [loading, setLoading] = useState(true)
     const [modifyLoading, setModifyLoading] = useState(false)
     const [accStat, setAccStat] = useState(null)
 
-    const [typeError, setTypeError] = useState(false)
     const [objError, setObjError] = useState(false)
     const [objErrorMsg, setObjErrorMsg] = useState("")
 
@@ -56,7 +52,6 @@ export default function Objective() {
     }, []);
 
     useEffect(() => {
-        fetchFieldUser()
         fetchAllObjective()
     }, [])
 
@@ -71,9 +66,7 @@ export default function Objective() {
     }, [decodedEditObjId])
 
     const resetFields = () => {
-        setSelType("0"); setHdnSelType("0")
         setObjName(""); setHdnObjName("")
-        setTypeError(false)
         setObjError(false); setObjErrorMsg("")
     }
 
@@ -81,22 +74,6 @@ export default function Objective() {
         setAccStat(response?.data?.acc_stat ?? null)
         if (response?.data?.acc_stat !== null && response?.data?.acc_stat !== undefined) {
             localStorage.setItem("acc_stat", response?.data?.acc_stat)
-        }
-    }
-
-    const fetchFieldUser = async () => {
-        try {
-            let response = await api.post("/fieldUsers")
-            let data = Array.isArray(response.data.data) ? response.data.data : []
-            setTypeOptions([
-                { id: "0", label: "All" },
-                ...data.map((item) => ({
-                    id: String(item.id),
-                    label: item.client_alias || ""
-                }))
-            ])
-        } catch (err) {
-            console.log("fetch field user Err", err)
         }
     }
 
@@ -120,11 +97,8 @@ export default function Objective() {
         try {
             let response = await api.post("/readObjective", { obj_id: id })
             let data = response.data.data[0]
-            setSelType(String(data.user_type))
-            setHdnSelType(String(data.user_type))
             setObjName(data.call_obj || "")
             setHdnObjName(data.call_obj || "")
-            setTypeError(false)
             setObjError(false); setObjErrorMsg("")
             setTabValue(0)
             storeAccStat(response)
@@ -135,13 +109,7 @@ export default function Objective() {
 
     const validateFields = () => {
         let isValid = true
-        setTypeError(false)
         setObjError(false); setObjErrorMsg("")
-
-        if (!typeOptions.some((t) => t.id === String(selType))) {
-            setTypeError(true)
-            isValid = false
-        }
 
         if (!objName || objName.trim() === "") {
             setObjError(true)
@@ -159,7 +127,6 @@ export default function Objective() {
         try {
             setModifyLoading(true)
             const payload = {
-                user_type: selType,
                 call_obj: objName.trim()
             }
 
@@ -245,18 +212,10 @@ export default function Objective() {
         })
     }
 
-    const isUnchanged =
-        String(hdnSelType) === String(selType) &&
-        hdnObjName.toLowerCase().trim() === objName.toLowerCase().trim()
-
-    const tableData = allObjData.map((item) => ({
-        ...item,
-        type_name: typeOptions.find((t) => t.id === String(item.user_type))?.label || "-"
-    }))
+    const isUnchanged = hdnObjName.toLowerCase().trim() === objName.toLowerCase().trim()
 
     const columns = [
         { field: "si_no", headerName: "#", filterable: true, sortable: true },
-        { field: "type_name", headerName: "Type", filterable: true, sortable: true },
         { field: "call_obj", headerName: objLabel, filterable: true, sortable: true },
         {
             field: "action", headerName: "Action", filterable: false,
@@ -306,28 +265,6 @@ export default function Objective() {
 
                     {tabValue === 0 && (
                         <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, width: '90%' }}>
-                            <Autocomplete
-                                options={typeOptions}
-                                getOptionLabel={(option) => option.label || ""}
-                                value={typeOptions.find((t) => t.id === String(selType)) || null}
-                                onChange={(e, newVal) => {
-                                    setSelType(newVal ? newVal.id : "0")
-                                    if (typeError) setTypeError(false)
-                                }}
-                                disableClearable
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Type"
-                                        size="small"
-                                        required
-                                        error={typeError}
-                                        helperText={typeError ? "The Type field is required." : ""}
-                                    />
-                                )}
-                            />
-
                             <TextField
                                 label={objLabel}
                                 size="small"
@@ -365,7 +302,7 @@ export default function Objective() {
 
                     {tabValue === 1 && (
                         <Box sx={{ p: 0 }}>
-                            <DataTable columns={columns} data={tableData} loading={loading} />
+                            <DataTable columns={columns} data={allObjData} loading={loading} />
                         </Box>
                     )}
                 </Box>

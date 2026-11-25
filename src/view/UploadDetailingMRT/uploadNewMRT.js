@@ -55,9 +55,11 @@ function UploadNewMrt(){
 
     useEffect(()=>{
      fetchCatTypeData()
-     fetchDoctypeData()
     },[])
 
+    useEffect(()=>{
+     fetchDoctypeData()
+    },[doctypeSel])
 
     const showConfirmationDialog = (config) => {
     setConfirmationDialog((prev) => ({ ...prev, ...config, open: true }));
@@ -70,7 +72,7 @@ function UploadNewMrt(){
   const showDeleteConfirmation = (row) => {
     showConfirmationDialog({
       title: "Confirmation",
-      message: "Are you sure you want Delete Mapping?",
+      message: "Are you sure you want Delete Detailing?",
       confirmText: "OK",
       cancelText: "Close",
       confirmColor: "primary",
@@ -83,7 +85,6 @@ function UploadNewMrt(){
             let response=await api.post('/catData')
             let data=Array.isArray(response.data.data) ? response.data.data :[]
             setDoctypeOptions(data)
-            console.log("data from doc type",data)
         }
         catch(err){
             console.log("Cat type Error", err);
@@ -113,8 +114,7 @@ function UploadNewMrt(){
         };
         });
 
-        setTableData(teamData); // use teamData, not data
-        console.log('table data we get ', teamData);
+        setTableData(teamData);
     } catch (err) {
         console.log('Cat type Error', err);
         toast.error('something went wrong Try again!!');
@@ -128,7 +128,6 @@ function UploadNewMrt(){
               let decoded = jwtDecode(token)
               setUserType(decoded.user_type)
               setSesUserId(decoded.user_id)
-              console.log("decoded user id", decoded.user_id)
             } catch (err) {
               console.log(err)
             }
@@ -199,20 +198,25 @@ function UploadNewMrt(){
         }
     ]
 
-    const handleEdit=async()=>{
-
+    const handleEdit=(row)=>{
+      try{
+        navigate(`/detailing/add_new_detailing_mrt/${btoa(String(row.det_id))}`)
+      }
+      catch(err){
+        console.log("Edit err",err)
+      }
     }
 
     const handleDelete = async (row) => {
         try {
           setModifyLoading(true)
           let payload = {
-            user_id: row.user_id
+            user_id: row.det_id
           }
           let response = await api.post("/delete_edet", payload)
           if (response.data.status === 200) {
             toast.success(response.data.message)
-            navigate("/detailing/add_det_mrt")
+            await fetchDoctypeData()
           }
           else {
             toast.error(response.data.message)
@@ -221,6 +225,7 @@ function UploadNewMrt(){
         }
         catch (err) {
           console.log("delete Error", err)
+          toast.error('something went wrong Try again!!')
         }
         finally {
           setModifyLoading(false)
@@ -247,9 +252,7 @@ function UploadNewMrt(){
                 
                     resolveAccStat();
     }, []);
-    
 
-   console.log("doctype Sel",doctypeSel)
     return (
        <Layout
         breadcrumb={[
