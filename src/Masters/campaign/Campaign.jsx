@@ -25,7 +25,7 @@ const Campaign = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [tableData, settableData] = useState([])
-    const [value, setValue] = useState('1');
+    const [value, setValue] = useState('2');
     const [loading, setLoading] = useState(true)
     const [accStat, setAccStat] = useState(null);
     /*----------form fields ---------*/
@@ -295,6 +295,7 @@ const Campaign = () => {
             setFormData({ campName: "" });
             setoriginal({ campName: "" })
             resetValidations();
+            setValue('2');
             return;
         }
         setValue('1');
