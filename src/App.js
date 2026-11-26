@@ -220,8 +220,6 @@ function App() {
               path="/Auth/forgot_paswd/:resetToken"
               element={<ForgotPassword />}
            />
-          <Route path='/detailing/add_det_mrt' element={<UploadNewMrt />}   />
-          <Route path="/detailing/add_new_detailing_mrt/:editId?" element={<AddNewDetailingMRT />}   />
           <Route element={<ProtectedRoute />}>
             <Route path="/:token" element={<TokenHandler />} />
             {/* <Route path="/" element={<Dashboard />} /> */}
@@ -465,6 +463,8 @@ function App() {
             <Route path="/masters/pos/:editPosId?"    element={<PosMaterial />} />
             <Route path="/masters/compitator/:editCompId?" element={<CompitatorBrands />}  />
             <Route path="/masters/speciality/:editCusId?"  element={<CustomerType />}      />
+            <Route path='/detailing/add_det_mrt' element={<UploadNewMrt />}   />
+            <Route path="/detailing/add_new_detailing_mrt/:editId?" element={<AddNewDetailingMRT />}   />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
 

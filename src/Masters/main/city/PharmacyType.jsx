@@ -21,7 +21,7 @@ const PharmacyType = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [tableData, settableData] = useState([])
-    const [value, setValue] = useState('1');
+    const [value, setValue] = useState('2');
     const [loading, setLoading] = useState(true)
     const [accStat, setAccStat] = useState(null);
 
@@ -287,6 +287,7 @@ const PharmacyType = () => {
             setFormData({ pharmacyType: "" });
             setoriginal({ pharmacyType: "" })
             resetValidations();
+            setValue('2');
             return;
         }
         setValue('1');
